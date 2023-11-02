@@ -30,6 +30,27 @@ def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
     Parameters
     ----------
     wavelength
+        the wavelengths at which to evaluate the color-matching function
+
+    Examples
+    --------
+
+    Plot :math:`\overline{x}(\lambda)` over the entire human visible wavelength range
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import astropy.visualization
+        import colorsynth
+
+        wavelength = np.linspace(380, 780, num=101) * u.nm
+        xbar = colorsynth.color_matching_x(wavelength)
+
+        with astropy.visualization.quantity_support():
+            plt.figure()
+            plt.plot(wavelength, xbar)
     """
     g = _piecewise_gaussian
     term_1 = 1.056 * g(
