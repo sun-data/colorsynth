@@ -233,7 +233,7 @@ def cie_1931_tristimulus(
     spectral_radiance: np.ndarray,
     wavelength: u.Quantity,
     axis: int = -1,
-):
+) -> np.ndarray:
     """
     Calculate the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`,
     for the given spectral radiance.
