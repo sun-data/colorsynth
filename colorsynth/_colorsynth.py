@@ -6,6 +6,7 @@ __all__ = [
     "color_matching_y",
     "color_matching_z",
     "color_matching_xyz",
+    "cie_1931_tristimulus",
 ]
 
 
@@ -224,4 +225,46 @@ def color_matching_xyz(
     y = color_matching_y(wavelength)
     z = color_matching_z(wavelength)
     result = np.stack([x, y, z], axis=axis)
+    return result
+
+
+def cie_1931_tristimulus(
+    spectral_radiance: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int = -1,
+):
+    """
+    Calculate the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`,
+    for the given spectral radiance.
+
+    Parameters
+    ----------
+    spectral_radiance
+        the spectral radiance of an emitting source as a function of wavelength
+    wavelength
+        the wavelength grid corresponding to the spectral radiance.
+    axis
+        the wavelength axis, or the axis along which to integrate
+    """
+    spectral_radiance, wavelength = np.broadcast_arrays(
+        spectral_radiance,
+        wavelength,
+        subok=True,
+    )
+
+    axis = ~(~axis % spectral_radiance.ndim)
+
+    xyz = color_matching_xyz(wavelength, axis=0)
+    integrand = spectral_radiance * xyz
+
+    result = np.trapz(
+        x=wavelength,
+        y=integrand,
+        axis=axis,
+    )
+    result = np.moveaxis(
+        a=result,
+        source=0,
+        destination=axis,
+    )
     return result
