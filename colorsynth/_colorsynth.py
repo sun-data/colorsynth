@@ -4,6 +4,7 @@ import astropy.units as u
 __all__ = [
     "color_matching_x",
     "color_matching_y",
+    "color_matching_z",
 ]
 
 
@@ -124,3 +125,51 @@ def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
     result = term_1 + term_2
     return result
 
+
+def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
+    r"""
+    The CIE 1931 :math:`\overline{z}(\lambda)` color matching function.
+
+    Calculated using the piecewise Gaussian fit method described in
+    :cite:t:`Wyman2013`
+
+    Parameters
+    ----------
+    wavelength
+        the wavelengths at which to evaluate the color-matching function
+
+    Examples
+    --------
+
+    Plot :math:`\overline{z}(\lambda)` over the entire human visible wavelength range
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import astropy.visualization
+        import colorsynth
+
+        wavelength = np.linspace(380, 780, num=101) * u.nm
+        zbar = colorsynth.color_matching_z(wavelength)
+
+        with astropy.visualization.quantity_support():
+            plt.figure()
+            plt.plot(wavelength, zbar)
+    """
+    g = _piecewise_gaussian
+    term_1 = 1.217 * g(
+        x=wavelength,
+        mean=437.0 * u.nm,
+        stddev_1=11.8 * u.nm,
+        stddev_2=36.0 * u.nm,
+    )
+    term_2 = 0.681 * g(
+        x=wavelength,
+        mean=459.0 * u.nm,
+        stddev_1=26.0 * u.nm,
+        stddev_2=13.8 * u.nm,
+    )
+    result = term_1 + term_2
+    return result

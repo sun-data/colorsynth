@@ -26,3 +26,11 @@ def test_color_matching_y(
 ):
     result = colorsynth.color_matching_y(wavelength)
     assert isinstance(result, (float, np.ndarray))
+
+
+@pytest.mark.parametrize(argnames="wavelength", argvalues=wavelengths)
+def test_color_matching_z(
+    wavelength: u.Quantity,
+):
+    result = colorsynth.color_matching_z(wavelength)
+    assert isinstance(result, (float, np.ndarray))
