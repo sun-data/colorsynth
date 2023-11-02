@@ -8,6 +8,11 @@ Introduction
 
     colorsynth
 
+Bibliography
+============
+
+.. bibliography::
+
 
 
 Indices and tables

@@ -24,6 +24,9 @@ def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)` color matching function.
 
+    Calculated using the piecewise Gaussian fit method described in
+    :cite:t:`Wyman2013`
+
     Parameters
     ----------
     wavelength
