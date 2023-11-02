@@ -34,3 +34,14 @@ def test_color_matching_z(
 ):
     result = colorsynth.color_matching_z(wavelength)
     assert isinstance(result, (float, np.ndarray))
+
+
+@pytest.mark.parametrize(argnames="wavelength", argvalues=wavelengths)
+@pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
+def test_color_matching_xyz(
+    wavelength: u.Quantity,
+    axis: int
+):
+    result = colorsynth.color_matching_xyz(wavelength, axis=axis)
+    assert isinstance(result, (float, np.ndarray))
+    assert result.shape[axis] == 3

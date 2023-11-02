@@ -5,6 +5,7 @@ __all__ = [
     "color_matching_x",
     "color_matching_y",
     "color_matching_z",
+    "color_matching_xyz",
 ]
 
 
@@ -172,4 +173,55 @@ def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
         stddev_2=13.8 * u.nm,
     )
     result = term_1 + term_2
+    return result
+
+
+def color_matching_xyz(
+    wavelength: u.Quantity,
+    axis: int = -1,
+) -> u.Quantity:
+    r"""
+    The CIE 1931 :math:`\overline{x}(\lambda)`, :math:`\overline{y}(\lambda)`,
+    and :math:`\overline{z}(\lambda)` color matching functions.
+
+    Stack the results of :func:`color_matching_x`, :func:`color_matching_y`,
+    and :func:`color_matching_z` into a single array.
+
+    Parameters
+    ----------
+    wavelength
+        the wavelengths at which to evaluate the color-matching function
+    axis
+        the axis in the result along which the :math:`\overline{x}(\lambda)`,
+        :math:`\overline{y}(\lambda)`, and :math:`\overline{z}(\lambda)` arrays
+        are stacked.
+
+    Examples
+    --------
+
+    Plot :math:`\overline{x}(\lambda)`, :math:`\overline{y}(\lambda)`,
+    and :math:`\overline{z}(\lambda)` over the entire human visible wavelength range.
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import astropy.visualization
+        import colorsynth
+
+        wavelength = np.linspace(380, 780, num=101) * u.nm
+        xyz = colorsynth.color_matching_xyz(wavelength, axis=0)
+
+        with astropy.visualization.quantity_support():
+            plt.figure()
+            plt.plot(wavelength, xyz[0], color="red", label=r"$\overline{x}(\lambda)$")
+            plt.plot(wavelength, xyz[1], color="green", label=r"$\overline{y}(\lambda)$")
+            plt.plot(wavelength, xyz[2], color="blue", label=r"$\overline{z}(\lambda)$")
+            plt.legend()
+    """
+    x = color_matching_x(wavelength)
+    y = color_matching_y(wavelength)
+    z = color_matching_z(wavelength)
+    result = np.stack([x, y, z], axis=axis)
     return result
