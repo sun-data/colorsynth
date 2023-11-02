@@ -7,6 +7,7 @@ __all__ = [
     "color_matching_z",
     "color_matching_xyz",
     "cie_1931_tristimulus",
+    "srgb",
 ]
 
 
@@ -267,4 +268,72 @@ def cie_1931_tristimulus(
         source=0,
         destination=axis,
     )
+    return result
+
+
+def srgb(
+    tristimulus: np.ndarray,
+    axis: int = -1,
+) -> np.ndarray:
+    """
+    Convert CIE 1931 tristimulus values, calculated using :func:`cie_1931_tristimulus`,
+    into the `sRGB color space <https://en.wikipedia.org/wiki/SRGB>`_, the standard
+    color space used on computer monitors.
+
+    Parameters
+    ----------
+    tristimulus
+        the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`.
+    axis
+        the axis along which the different tristiumulus values are located
+
+    Examples
+    --------
+
+    Plot a 2d set of random spectral radiance curves as a color image
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import colorsynth
+
+        # Define the number of wavelength bins in our spectrum
+        num = 11
+
+        # Define an evenly-spaced grid of wavelengths
+        wavelength = np.linspace(380, 780, num=num) * u.nm
+
+        # Define a random spectral radiance cube by sampling from a uniform distribution
+        spectral_radiance = np.random.uniform(size=(16, 16, num))
+
+        # Calculate the CIE 1931 tristimulus values from the specdtral radiance
+        xyz = colorsynth.cie_1931_tristimulus(spectral_radiance, wavelength)
+
+        # Normalize the tristimulus values based on the max value of the Y parameter
+        xyz = xyz / xyz[..., 1].max()
+
+        # Convert the tristimulus values into sRGB, the standard used in most
+        # computer monitors
+        rgb = colorsynth.srgb(xyz)
+
+        # Plot the result as an image
+        plt.figure();
+        plt.imshow(rgb);
+    """
+    x, y, z = np.moveaxis(tristimulus, axis, 0)
+
+    r = +3.2406 * x - 1.5372 * y - 0.4986 * z
+    g = -0.9689 * x + 1.8758 * y + 0.0415 * z
+    b = +0.0557 * x - 0.2040 * y + 1.0570 * z
+
+    result = np.stack([r, g, b], axis=axis)
+
+    where = result <= 0.0031308
+    not_where = ~where
+
+    result[where] = 12.92 * result[where]
+    result[not_where] = 1.055 * result[not_where] ** (1 / 2.4) - 0.055
+
     return result

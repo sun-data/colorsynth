@@ -74,3 +74,20 @@ def test_cie_1931_tristimulus(
     assert isinstance(result, np.ndarray)
     assert np.all(result >= 0)
     assert result.shape[axis] == 3
+
+
+@pytest.mark.parametrize(
+    argnames="tristimulus",
+    argvalues=[
+        np.random.uniform(size=(3,)),
+        np.random.uniform(size=(64, 64, 3)),
+    ],
+)
+@pytest.mark.parametrize(argnames="axis", argvalues=[-1])
+def test_srgb(
+    tristimulus: np.ndarray,
+    axis: int,
+):
+    result = colorsynth.srgb(tristimulus, axis=axis)
+    assert isinstance(result, np.ndarray)
+    assert result.shape[axis] == 3
