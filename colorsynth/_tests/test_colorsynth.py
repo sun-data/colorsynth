@@ -11,8 +11,8 @@ import colorsynth
         np.linspace(
             start=380 * u.nm,
             stop=780 * u.nm,
-        )
-    ]
+        ),
+    ],
 )
 def test_color_matching_x(
     wavelength: u.Quantity,
