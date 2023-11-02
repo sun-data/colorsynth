@@ -40,7 +40,7 @@ def test_color_matching_z(
 @pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
 def test_color_matching_xyz(
     wavelength: u.Quantity,
-    axis: int
+    axis: int,
 ):
     result = colorsynth.color_matching_xyz(wavelength, axis=axis)
     assert isinstance(result, (float, np.ndarray))
@@ -50,7 +50,7 @@ def test_color_matching_xyz(
 @pytest.mark.parametrize(
     argnames="spectral_radiance",
     argvalues=[
-        np.random.uniform(size=(101, )),
+        np.random.uniform(size=(101,)),
         np.random.uniform(size=(64, 64, 101)),
     ],
 )
@@ -58,13 +58,13 @@ def test_color_matching_xyz(
     argnames="wavelength",
     argvalues=[
         np.linspace(380, 780, num=101) * u.nm,
-    ]
+    ],
 )
 @pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
 def test_cie_1931_tristimulus(
     spectral_radiance: np.ndarray,
     wavelength: u.Quantity,
-    axis: int
+    axis: int,
 ):
     result = colorsynth.cie_1931_tristimulus(
         spectral_radiance=spectral_radiance,
