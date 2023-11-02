@@ -321,6 +321,66 @@ def srgb(
         # Plot the result as an image
         plt.figure();
         plt.imshow(rgb);
+
+    |
+
+    Plot the response curves of the :math:`R`, :math:`G`, and :math:`B` to
+    a constant spectral radiance
+
+    .. jupyter-execute::
+
+        # Define an evenly-spaced grid of wavelengths
+        wavelength = np.linspace(380, 780, num=101) * u.nm
+
+        spectral_radiance = np.diagflat(np.ones(wavelength.shape))
+
+        # Calculate the CIE 1931 tristimulus values from the specdtral radiance
+        xyz = colorsynth.cie_1931_tristimulus(spectral_radiance, wavelength[..., np.newaxis], axis=0)
+
+        # Normalize the tristimulus values based on the max value of the Y parameter
+        xyz = xyz / xyz.max(axis=1, keepdims=True)
+        xyz = xyz * np.array([0.9505, 1.0000, 1.0890])[..., np.newaxis]
+
+        # Convert the tristimulus values into sRGB
+        r, g, b = np.clip(colorsynth.srgb(xyz, axis=0), 0, 10)
+
+        plt.figure();
+        plt.plot(wavelength, r, color="red");
+        plt.plot(wavelength, g, color="green");
+        plt.plot(wavelength, b, color="blue");
+
+    |
+
+    Plot the CIE 1931 chromaticity diagram
+
+    .. jupyter-execute::
+
+        x = np.linspace(0, 1, num=100)[:, np.newaxis]
+        y = np.linspace(0, 1, num=101)[np.newaxis, :]
+        x, y = np.broadcast_arrays(x, y)
+        z = 1 - x - y
+
+        Y = 0.5
+        X = Y * x / y
+        Z = Y * z / y
+        XYZ = [
+            X,
+            np.broadcast_to(Y, z.shape),
+            Z,
+        ]
+        XYZ = np.stack(XYZ, axis=-1)
+
+        rgb = colorsynth.srgb(XYZ, axis=-1)
+        rgb = np.clip(rgb, 0, 1)
+
+        rgb[X < 0] = 1
+        rgb[Z < 0] = 1
+        rgb[X >= 0.9505] = 1
+        rgb[Z >= 1.0890] = 1
+
+        plt.figure();
+        plt.pcolormesh(x, y, rgb);
+
     """
     x, y, z = np.moveaxis(tristimulus, axis, 0)
 
