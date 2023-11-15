@@ -22,7 +22,7 @@ def d65_standard_illuminant(
     which corresponds to average midday light in Western/Northern Europe.
 
     This function interpolates the
-    `tabulated SPD <https://web.archive.org/web/20171122140854/http://www.cie.co.at/publ/abst/datatables15_2004/std65.txt>`
+    `tabulated SPD <https://web.archive.org/web/20171122140854/http://www.cie.co.at/publ/abst/datatables15_2004/std65.txt>`_
     provided by CIE.
 
     Parameters
@@ -313,6 +313,7 @@ def cie_1931_tristimulus(
         y=integrand,
         axis=axis,
     )
+    result = np.abs(result)
     result = np.moveaxis(
         a=result,
         source=0,
@@ -405,12 +406,12 @@ def srgb(
 
     .. jupyter-execute::
 
-        x = np.linspace(0, 1, num=100)[:, np.newaxis]
-        y = np.linspace(0, 1, num=101)[np.newaxis, :]
+        x = np.linspace(0, 1, num=1000)[:, np.newaxis]
+        y = np.linspace(0, 1, num=1001)[np.newaxis, :]
         x, y = np.broadcast_arrays(x, y)
         z = 1 - x - y
 
-        Y = 0.5
+        Y = 0.9
         X = Y * x / y
         Z = Y * z / y
         XYZ = [
@@ -421,12 +422,16 @@ def srgb(
         XYZ = np.stack(XYZ, axis=-1)
 
         rgb = colorsynth.srgb(XYZ, axis=-1)
-        rgb = np.clip(rgb, 0, 1)
+        # rgb = np.clip(rgb, 0, 1)
 
-        rgb[X < 0] = 1
-        rgb[Z < 0] = 1
-        rgb[X >= 0.9505] = 1
-        rgb[Z >= 1.0890] = 1
+        # rgb[X < 0] = 1
+        # rgb[Z < 0] = 1
+        # rgb[X >= 0.9505] = 1
+        # rgb[Z >= 1.0890] = 1
+        # rgb[rgb.sum(axis=-1) > 1] = 1
+
+        # rgb[np.any(rgb < 0, axis=-1)] = 1
+        # rgb[np.any(rgb > 1, axis=-1)] = 1
 
         plt.figure();
         plt.pcolormesh(x, y, rgb);
