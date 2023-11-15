@@ -13,6 +13,14 @@ wavelengths = [
 
 
 @pytest.mark.parametrize(argnames="wavelength", argvalues=wavelengths)
+def test_d65_standard_illuminant(
+    wavelength: u.Quantity,
+):
+    result = colorsynth.d65_standard_illuminant(wavelength)
+    assert isinstance(result, (float, np.ndarray))
+
+
+@pytest.mark.parametrize(argnames="wavelength", argvalues=wavelengths)
 def test_color_matching_x(
     wavelength: u.Quantity,
 ):

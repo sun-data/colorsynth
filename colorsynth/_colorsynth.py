@@ -1,7 +1,9 @@
+import pathlib
 import numpy as np
 import astropy.units as u
 
 __all__ = [
+    "d65_standard_illuminant",
     "color_matching_x",
     "color_matching_y",
     "color_matching_z",
@@ -9,6 +11,54 @@ __all__ = [
     "cie_1931_tristimulus",
     "srgb",
 ]
+
+
+def d65_standard_illuminant(
+    wavelength: u.Quantity,
+) -> u.Quantity:
+    """
+    Spectral power distribution (SPD) of the
+    `CIE standard illuminant D65 <https://en.wikipedia.org/wiki/Illuminant_D65>`_,
+    which corresponds to average midday light in Western/Northern Europe.
+
+    This function interpolates the
+    `tabulated SPD <https://web.archive.org/web/20171122140854/http://www.cie.co.at/publ/abst/datatables15_2004/std65.txt>`
+    provided by CIE.
+
+    Parameters
+    ----------
+    wavelength
+        the wavelengths at which to evaluate the spectral power distribution.
+
+    Examples
+    --------
+    Plot the D65 standard illuminant over the human visible color range.
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import astropy.visualization
+        import colorsynth
+
+        wavelength = np.linspace(300, 780, num=1001) * u.nm
+        d65 = colorsynth.d65_standard_illuminant(wavelength)
+
+        with astropy.visualization.quantity_support():
+            plt.figure()
+            plt.plot(wavelength, d65)
+    """
+
+    path = pathlib.Path(__file__).parent / "data/std65.txt"
+    wavl, spd = np.genfromtxt(path, skip_header=1, unpack=True)
+    wavl = wavl << u.nm
+    result = np.interp(
+        x=wavelength,
+        xp=wavl,
+        fp=spd,
+    )
+    return result
 
 
 def _piecewise_gaussian(
