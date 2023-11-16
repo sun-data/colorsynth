@@ -464,8 +464,8 @@ def sRGB(
         # plot the gamut
         plt.figure();
         plt.pcolormesh(*np.broadcast_arrays(x, y), np.moveaxis(rgb, source=axis, destination=-1));
-        plt.xlabel("CIE 1931 $x$")
-        plt.ylabel("CIE 1931 $y$")
+        plt.xlabel("CIE 1931 $x$");
+        plt.ylabel("CIE 1931 $y$");
 
     |
 
