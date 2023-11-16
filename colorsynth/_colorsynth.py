@@ -441,13 +441,15 @@ def sRGB(
         # Create a CIE 1931 xyY color vector
         xyY = np.stack(np.broadcast_arrays(x, y, Y), axis=axis)
 
-        # Convert into the CIE 1931 XYZ color space
+        # Convert the color space from CIE 1931 xyY to XYZ
         XYZ = colorsynth.XYZ_from_xyY_cie(xyY, axis=axis)
 
-        # Convert the XYZ vector to the sRGB color space
+        # Convert the color space again from CIE 1931 XYZ
+        # to our target, sRGB.
         rgb = colorsynth.sRGB(XYZ, axis=axis)
 
-        # Calculate the pixels that are within the sRGB gamut
+        # Find the pixels that are within the sRGB gamut
+        # by checking if they are finite, and if they lie within the range 0-1.
         where_nan = ~np.all(np.isfinite(rgb), axis=axis, keepdims=True)
         where_invalid = ~np.all((0 <= rgb) & (rgb <= 1), axis=axis, keepdims=True)
         where_outside = where_nan | where_invalid
@@ -457,13 +459,16 @@ def sRGB(
         # Set the pixels outside the gamut to gray
         rgb[where_outside] = 0.5
 
-        # Scale the rgb values inside the gamut to the most saturated
+        # Scale the RGB values inside the gamut to the most saturated
         # color possible
         rgb[where_inside] = (rgb / np.max(rgb, axis=axis, keepdims=True))[where_inside]
 
-        # plot the gamut
+        # plot the sRGB gamut
         plt.figure();
-        plt.pcolormesh(*np.broadcast_arrays(x, y), np.moveaxis(rgb, source=axis, destination=-1));
+        plt.pcolormesh(
+            *np.broadcast_arrays(x, y),
+            np.moveaxis(rgb, source=axis, destination=-1),
+        );
         plt.xlabel("CIE 1931 $x$");
         plt.ylabel("CIE 1931 $y$");
 
