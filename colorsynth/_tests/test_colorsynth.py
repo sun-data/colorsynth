@@ -112,12 +112,12 @@ def test_XYZ_from_xyY_cie(
     assert result.shape[axis] == 3
 
 
-@pytest.mark.parametrize("tristimulus", XYZ)
+@pytest.mark.parametrize("XYZ", XYZ)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
 def test_srgb(
-    tristimulus: np.ndarray,
+    XYZ: np.ndarray,
     axis: int,
 ):
-    result = colorsynth.srgb(tristimulus, axis=axis)
+    result = colorsynth.srgb(XYZ, axis=axis)
     assert isinstance(result, np.ndarray)
     assert result.shape[axis] == 3

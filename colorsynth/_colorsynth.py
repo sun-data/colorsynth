@@ -369,7 +369,7 @@ def XYZ_from_xyY_cie(
 
 
 def srgb(
-    tristimulus: np.ndarray,
+    XYZ: np.ndarray,
     axis: int = -1,
 ) -> np.ndarray:
     """
@@ -379,10 +379,10 @@ def srgb(
 
     Parameters
     ----------
-    tristimulus
-        the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`.
+    XYZ
+        the CIE 1931 tristimulus values, :math:`XYZ`.
     axis
-        the axis along which the different tristiumulus values are located
+        the axis along which the different tristimulus values are arranged
 
     Examples
     --------
@@ -405,15 +405,15 @@ def srgb(
         # Define a random spectral power distribution cube by sampling from a uniform distribution
         spd = np.random.uniform(size=(16, 16, num))
 
-        # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.XYZcie1931_from_spd(spd, wavelength)
+        # Calculate the CIE 1931 tristimulus values from the spectral power distribution
+        XYZ = colorsynth.XYZcie1931_from_spd(spd, wavelength)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
-        xyz = xyz / xyz[..., 1].max()
+        XYZ = XYZ / XYZ[..., 1].max()
 
         # Convert the tristimulus values into sRGB, the standard used in most
         # computer monitors
-        rgb = colorsynth.srgb(xyz)
+        rgb = colorsynth.srgb(XYZ)
 
         # Plot the result as an image
         plt.figure();
@@ -431,15 +431,15 @@ def srgb(
 
         spd = np.diagflat(np.ones(wavelength.shape))
 
-        # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.XYZcie1931_from_spd(spd, wavelength[..., np.newaxis], axis=0)
+        # Calculate the CIE 1931 tristimulus values from the spectral power distribution
+        XYZ = colorsynth.XYZcie1931_from_spd(spd, wavelength[..., np.newaxis], axis=0)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
-        xyz = xyz / xyz.max(axis=1, keepdims=True)
-        xyz = xyz * np.array([0.9505, 1.0000, 1.0890])[..., np.newaxis]
+        XYZ = XYZ / XYZ.max(axis=1, keepdims=True)
+        XYZ = XYZ * np.array([0.9505, 1.0000, 1.0890])[..., np.newaxis]
 
         # Convert the tristimulus values into sRGB
-        r, g, b = np.clip(colorsynth.srgb(xyz, axis=0), 0, 10)
+        r, g, b = np.clip(colorsynth.srgb(XYZ, axis=0), 0, 10)
 
         plt.figure();
         plt.plot(wavelength, r, color="red");
@@ -483,11 +483,11 @@ def srgb(
         plt.pcolormesh(x, y, rgb);
 
     """
-    x, y, z = np.moveaxis(tristimulus, axis, 0)
+    X, Y, Z = np.moveaxis(XYZ, axis, 0)
 
-    r = +3.2406 * x - 1.5372 * y - 0.4986 * z
-    g = -0.9689 * x + 1.8758 * y + 0.0415 * z
-    b = +0.0557 * x - 0.2040 * y + 1.0570 * z
+    r = +3.2406 * X - 1.5372 * Y - 0.4986 * Z
+    g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z
+    b = +0.0557 * X - 0.2040 * Y + 1.0570 * Z
 
     result = np.stack([r, g, b], axis=axis)
 
