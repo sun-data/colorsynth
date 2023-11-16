@@ -11,7 +11,7 @@ __all__ = [
     "XYZcie1931_from_spd",
     "xyY_from_XYZ_cie",
     "XYZ_from_xyY_cie",
-    "srgb",
+    "sRGB",
 ]
 
 
@@ -368,7 +368,7 @@ def XYZ_from_xyY_cie(
     return result
 
 
-def srgb(
+def sRGB(
     XYZ: np.ndarray,
     axis: int = -1,
 ) -> np.ndarray:
@@ -413,7 +413,7 @@ def srgb(
 
         # Convert the tristimulus values into sRGB, the standard used in most
         # computer monitors
-        rgb = colorsynth.srgb(XYZ)
+        rgb = colorsynth.sRGB(XYZ)
 
         # Plot the result as an image
         plt.figure();
@@ -439,7 +439,7 @@ def srgb(
         XYZ = XYZ * np.array([0.9505, 1.0000, 1.0890])[..., np.newaxis]
 
         # Convert the tristimulus values into sRGB
-        r, g, b = np.clip(colorsynth.srgb(XYZ, axis=0), 0, 10)
+        r, g, b = np.clip(colorsynth.sRGB(XYZ, axis=0), 0, 10)
 
         plt.figure();
         plt.plot(wavelength, r, color="red");
@@ -467,7 +467,7 @@ def srgb(
         ]
         XYZ = np.stack(XYZ, axis=-1)
 
-        rgb = colorsynth.srgb(XYZ, axis=-1)
+        rgb = colorsynth.sRGB(XYZ, axis=-1)
         # rgb = np.clip(rgb, 0, 1)
 
         # rgb[X < 0] = 1

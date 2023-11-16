@@ -114,10 +114,10 @@ def test_XYZ_from_xyY_cie(
 
 @pytest.mark.parametrize("XYZ", XYZ)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
-def test_srgb(
+def test_sRGB(
     XYZ: np.ndarray,
     axis: int,
 ):
-    result = colorsynth.srgb(XYZ, axis=axis)
+    result = colorsynth.sRGB(XYZ, axis=axis)
     assert isinstance(result, np.ndarray)
     assert result.shape[axis] == 3
