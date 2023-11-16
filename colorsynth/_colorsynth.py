@@ -451,8 +451,8 @@ def sRGB(
         where_nan = ~np.all(np.isfinite(rgb), axis=axis, keepdims=True)
         where_invalid = ~np.all((0 <= rgb) & (rgb <= 1), axis=axis, keepdims=True)
         where_outside = where_nan | where_invalid
-        where_outside = np.broadcast_to(where, rgb.shape)
-        where_inside = ~where
+        where_outside = np.broadcast_to(where_outside, rgb.shape)
+        where_inside = ~where_outside
 
         # Set the pixels outside the gamut to gray
         rgb[where_outside] = 0.5
@@ -466,6 +466,8 @@ def sRGB(
         plt.pcolormesh(*np.broadcast_arrays(x, y), np.moveaxis(rgb, source=axis, destination=-1));
         plt.xlabel("CIE 1931 $x$")
         plt.ylabel("CIE 1931 $y$")
+
+    |
 
     Plot the response curves of the :math:`R`, :math:`G`, and :math:`B` to
     a constant spectral power distribution
