@@ -112,7 +112,7 @@ def test_XYZ_from_xyY_cie(
     assert result.shape[axis] == 3
 
 
-@pytest.mark.parametrize("tristimulus", XYZ,)
+@pytest.mark.parametrize("tristimulus", XYZ)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
 def test_srgb(
     tristimulus: np.ndarray,
