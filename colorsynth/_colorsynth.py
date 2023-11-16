@@ -8,7 +8,7 @@ __all__ = [
     "color_matching_y",
     "color_matching_z",
     "color_matching_xyz",
-    "cie_1931_tristimulus",
+    "XYZcie1931_from_spd",
     "xyY_from_XYZ_cie",
     "XYZ_from_xyY_cie",
     "srgb",
@@ -281,7 +281,7 @@ def color_matching_xyz(
     return result
 
 
-def cie_1931_tristimulus(
+def XYZcie1931_from_spd(
     spd: np.ndarray,
     wavelength: u.Quantity,
     axis: int = -1,
@@ -373,7 +373,7 @@ def srgb(
     axis: int = -1,
 ) -> np.ndarray:
     """
-    Convert CIE 1931 tristimulus values, calculated using :func:`cie_1931_tristimulus`,
+    Convert CIE 1931 tristimulus values, calculated using :func:`XYZcie1931_from_spd`,
     into the `sRGB color space <https://en.wikipedia.org/wiki/SRGB>`_, the standard
     color space used on computer monitors.
 
@@ -406,7 +406,7 @@ def srgb(
         spd = np.random.uniform(size=(16, 16, num))
 
         # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.cie_1931_tristimulus(spd, wavelength)
+        xyz = colorsynth.XYZcie1931_from_spd(spd, wavelength)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
         xyz = xyz / xyz[..., 1].max()
@@ -432,7 +432,7 @@ def srgb(
         spd = np.diagflat(np.ones(wavelength.shape))
 
         # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.cie_1931_tristimulus(spd, wavelength[..., np.newaxis], axis=0)
+        xyz = colorsynth.XYZcie1931_from_spd(spd, wavelength[..., np.newaxis], axis=0)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
         xyz = xyz / xyz.max(axis=1, keepdims=True)

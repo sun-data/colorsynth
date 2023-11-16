@@ -75,12 +75,12 @@ def test_color_matching_xyz(
     ],
 )
 @pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
-def test_cie_1931_tristimulus(
+def test_XYZcie1931_from_spd(
     spd: np.ndarray,
     wavelength: u.Quantity,
     axis: int,
 ):
-    result = colorsynth.cie_1931_tristimulus(
+    result = colorsynth.XYZcie1931_from_spd(
         spd=spd,
         wavelength=wavelength,
         axis=axis,
