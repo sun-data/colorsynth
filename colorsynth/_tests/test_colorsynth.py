@@ -12,6 +12,12 @@ wavelengths = [
 ]
 
 
+XYZ = [
+    np.random.uniform(size=(3,)),
+    np.random.uniform(size=(64, 64, 3)),
+]
+
+
 @pytest.mark.parametrize(argnames="wavelength", argvalues=wavelengths)
 def test_d65_standard_illuminant(
     wavelength: u.Quantity,
@@ -84,13 +90,29 @@ def test_cie_1931_tristimulus(
     assert result.shape[axis] == 3
 
 
-@pytest.mark.parametrize(
-    argnames="tristimulus",
-    argvalues=[
-        np.random.uniform(size=(3,)),
-        np.random.uniform(size=(64, 64, 3)),
-    ],
-)
+@pytest.mark.parametrize("XYZ", XYZ)
+@pytest.mark.parametrize("axis", [-1])
+def test_xyY_from_XYZ_cie(
+    XYZ: np.ndarray,
+    axis: int,
+):
+    result = colorsynth.xyY_from_XYZ_cie(XYZ, axis=axis)
+    assert isinstance(result, np.ndarray)
+    assert result.shape[axis] == 3
+
+
+@pytest.mark.parametrize("xyY", XYZ)
+@pytest.mark.parametrize("axis", [-1])
+def test_XYZ_from_xyY_cie(
+    xyY: np.ndarray,
+    axis: int,
+):
+    result = colorsynth.XYZ_from_xyY_cie(xyY, axis=axis)
+    assert isinstance(result, np.ndarray)
+    assert result.shape[axis] == 3
+
+
+@pytest.mark.parametrize("tristimulus", XYZ,)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
 def test_srgb(
     tristimulus: np.ndarray,

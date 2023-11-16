@@ -9,6 +9,8 @@ __all__ = [
     "color_matching_z",
     "color_matching_xyz",
     "cie_1931_tristimulus",
+    "xyY_from_XYZ_cie",
+    "XYZ_from_xyY_cie",
     "srgb",
 ]
 
@@ -319,6 +321,50 @@ def cie_1931_tristimulus(
         source=0,
         destination=axis,
     )
+    return result
+
+
+def xyY_from_XYZ_cie(
+    XYZ: np.ndarray,
+    axis: int = -1,
+) -> np.ndarray:
+    """
+    Convert from a CIE :math:`XYZ` color space to a :math:`xyY` color space
+
+    Parameters
+    ----------
+    XYZ
+        color values in a CIE :math:`XYZ` color space to be converted
+    axis
+        logical axis along which the :math:`XYZ` values are distributed
+    """
+    XYZ_sum = XYZ.sum(axis)
+    X, Y, Z = np.moveaxis(XYZ, source=axis, destination=0)
+    x = X / XYZ_sum
+    y = Y / XYZ_sum
+    result = np.stack([x, y, Y], axis=axis)
+    return result
+
+
+def XYZ_from_xyY_cie(
+    xyY: np.ndarray,
+    axis: int = -1,
+) -> np.ndarray:
+    """
+    Convert from a CIE :math:`xyY` color space to a :math:`XYZ` color space
+
+    Parameters
+    ----------
+    xyY
+        color values in a CIE :math:`xyY` color space to be converted
+    axis
+        logical axis along which the :math:`xyY` values are distributed
+    """
+    x, y, Y = np.moveaxis(xyY, source=axis, destination=0)
+    r = Y / y
+    X = r * x
+    Z = r * (1 - x - y)
+    result = np.stack([X, Y, Z], axis=axis)
     return result
 
 
