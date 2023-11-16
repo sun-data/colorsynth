@@ -282,33 +282,33 @@ def color_matching_xyz(
 
 
 def cie_1931_tristimulus(
-    spectral_radiance: np.ndarray,
+    spd: np.ndarray,
     wavelength: u.Quantity,
     axis: int = -1,
 ) -> np.ndarray:
     """
     Calculate the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`,
-    for the given spectral radiance.
+    for the given spectral power distribution.
 
     Parameters
     ----------
-    spectral_radiance
-        the spectral radiance of an emitting source as a function of wavelength
+    spd
+        the spectral power distribution of an emitting source as a function of wavelength
     wavelength
-        the wavelength grid corresponding to the spectral radiance.
+        the wavelength grid corresponding to the spectral power distribution.
     axis
         the wavelength axis, or the axis along which to integrate
     """
-    spectral_radiance, wavelength = np.broadcast_arrays(
-        spectral_radiance,
+    spd, wavelength = np.broadcast_arrays(
+        spd,
         wavelength,
         subok=True,
     )
 
-    axis = ~(~axis % spectral_radiance.ndim)
+    axis = ~(~axis % spd.ndim)
 
     xyz = color_matching_xyz(wavelength, axis=0)
-    integrand = spectral_radiance * xyz
+    integrand = spd * xyz
 
     result = np.trapz(
         x=wavelength,
@@ -387,7 +387,7 @@ def srgb(
     Examples
     --------
 
-    Plot a 2d set of random spectral radiance curves as a color image
+    Plot a 2d set of random spectral power distribution curves as a color image
 
     .. jupyter-execute::
 
@@ -402,11 +402,11 @@ def srgb(
         # Define an evenly-spaced grid of wavelengths
         wavelength = np.linspace(380, 780, num=num) * u.nm
 
-        # Define a random spectral radiance cube by sampling from a uniform distribution
-        spectral_radiance = np.random.uniform(size=(16, 16, num))
+        # Define a random spectral power distribution cube by sampling from a uniform distribution
+        spd = np.random.uniform(size=(16, 16, num))
 
         # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.cie_1931_tristimulus(spectral_radiance, wavelength)
+        xyz = colorsynth.cie_1931_tristimulus(spd, wavelength)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
         xyz = xyz / xyz[..., 1].max()
@@ -422,17 +422,17 @@ def srgb(
     |
 
     Plot the response curves of the :math:`R`, :math:`G`, and :math:`B` to
-    a constant spectral radiance
+    a constant spectral power distribution
 
     .. jupyter-execute::
 
         # Define an evenly-spaced grid of wavelengths
         wavelength = np.linspace(380, 780, num=101) * u.nm
 
-        spectral_radiance = np.diagflat(np.ones(wavelength.shape))
+        spd = np.diagflat(np.ones(wavelength.shape))
 
         # Calculate the CIE 1931 tristimulus values from the specdtral radiance
-        xyz = colorsynth.cie_1931_tristimulus(spectral_radiance, wavelength[..., np.newaxis], axis=0)
+        xyz = colorsynth.cie_1931_tristimulus(spd, wavelength[..., np.newaxis], axis=0)
 
         # Normalize the tristimulus values based on the max value of the Y parameter
         xyz = xyz / xyz.max(axis=1, keepdims=True)

@@ -62,7 +62,7 @@ def test_color_matching_xyz(
 
 
 @pytest.mark.parametrize(
-    argnames="spectral_radiance",
+    argnames="spd",
     argvalues=[
         np.random.uniform(size=(101,)),
         np.random.uniform(size=(64, 64, 101)),
@@ -76,12 +76,12 @@ def test_color_matching_xyz(
 )
 @pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
 def test_cie_1931_tristimulus(
-    spectral_radiance: np.ndarray,
+    spd: np.ndarray,
     wavelength: u.Quantity,
     axis: int,
 ):
     result = colorsynth.cie_1931_tristimulus(
-        spectral_radiance=spectral_radiance,
+        spd=spd,
         wavelength=wavelength,
         axis=axis,
     )
