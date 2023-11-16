@@ -287,7 +287,7 @@ def XYZcie1931_from_spd(
     axis: int = -1,
 ) -> np.ndarray:
     """
-    Calculate the CIE 1931 tristimulus values, :math:`X`, :math:`Y`, and :math:`Z`,
+    Calculate the CIE 1931 tristimulus values, :math:`XYZ`,
     for the given spectral power distribution.
 
     Parameters
@@ -296,6 +296,7 @@ def XYZcie1931_from_spd(
         the spectral power distribution of an emitting source as a function of wavelength
     wavelength
         the wavelength grid corresponding to the spectral power distribution.
+        Must be sorted to yield positive :math:`XYZ` values
     axis
         the wavelength axis, or the axis along which to integrate
     """
@@ -315,7 +316,6 @@ def XYZcie1931_from_spd(
         y=integrand,
         axis=axis,
     )
-    result = np.abs(result)
     result = np.moveaxis(
         a=result,
         source=0,
