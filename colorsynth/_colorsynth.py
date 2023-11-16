@@ -421,6 +421,52 @@ def sRGB(
 
     |
 
+    Plot the sRGB `color gamut <https://en.wikipedia.org/wiki/Gamut>`_, the complete
+    subset of colors that can be reproduced accurately with sRGB.
+
+    .. jupyter-execute::
+
+        # Define a grid of CIE xy values
+        x = np.linspace(0, 0.7, num=1000)[:, np.newaxis]
+        y = np.linspace(0, 0.7, num=1001)[np.newaxis, :]
+
+        # Define a very small value for the luminance,
+        # so that the gamut is as large as possible
+        Y = 1e-3
+
+        # Define an axis which represents the
+        # components of the color vectors
+        axis = -1
+
+        # Create a CIE 1931 xyY color vector
+        xyY = np.stack(np.broadcast_arrays(x, y, Y), axis=axis)
+
+        # Convert into the CIE 1931 XYZ color space
+        XYZ = colorsynth.XYZ_from_xyY_cie(xyY, axis=axis)
+
+        # Convert the XYZ vector to the sRGB color space
+        rgb = colorsynth.sRGB(XYZ, axis=axis)
+
+        # Calculate the pixels that are within the sRGB gamut
+        where_nan = ~np.all(np.isfinite(rgb), axis=axis, keepdims=True)
+        where_invalid = ~np.all((0 <= rgb) & (rgb <= 1), axis=axis, keepdims=True)
+        where_outside = where_nan | where_invalid
+        where_outside = np.broadcast_to(where, rgb.shape)
+        where_inside = ~where
+
+        # Set the pixels outside the gamut to gray
+        rgb[where_outside] = 0.5
+
+        # Scale the rgb values inside the gamut to the most saturated
+        # color possible
+        rgb[where_inside] = (rgb / np.max(rgb, axis=axis, keepdims=True))[where_inside]
+
+        # plot the gamut
+        plt.figure();
+        plt.pcolormesh(*np.broadcast_arrays(x, y), np.moveaxis(rgb, source=axis, destination=-1));
+        plt.xlabel("CIE 1931 $x$")
+        plt.ylabel("CIE 1931 $y$")
+
     Plot the response curves of the :math:`R`, :math:`G`, and :math:`B` to
     a constant spectral power distribution
 
@@ -446,41 +492,6 @@ def sRGB(
         plt.plot(wavelength, g, color="green");
         plt.plot(wavelength, b, color="blue");
 
-    |
-
-    Plot the CIE 1931 chromaticity diagram
-
-    .. jupyter-execute::
-
-        x = np.linspace(0, 1, num=1000)[:, np.newaxis]
-        y = np.linspace(0, 1, num=1001)[np.newaxis, :]
-        x, y = np.broadcast_arrays(x, y)
-        z = 1 - x - y
-
-        Y = 0.9
-        X = Y * x / y
-        Z = Y * z / y
-        XYZ = [
-            X,
-            np.broadcast_to(Y, z.shape),
-            Z,
-        ]
-        XYZ = np.stack(XYZ, axis=-1)
-
-        rgb = colorsynth.sRGB(XYZ, axis=-1)
-        # rgb = np.clip(rgb, 0, 1)
-
-        # rgb[X < 0] = 1
-        # rgb[Z < 0] = 1
-        # rgb[X >= 0.9505] = 1
-        # rgb[Z >= 1.0890] = 1
-        # rgb[rgb.sum(axis=-1) > 1] = 1
-
-        # rgb[np.any(rgb < 0, axis=-1)] = 1
-        # rgb[np.any(rgb > 1, axis=-1)] = 1
-
-        plt.figure();
-        plt.pcolormesh(x, y, rgb);
 
     """
     X, Y, Z = np.moveaxis(XYZ, axis, 0)
