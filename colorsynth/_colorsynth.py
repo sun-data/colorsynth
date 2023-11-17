@@ -3,6 +3,8 @@ import numpy as np
 import astropy.units as u
 
 __all__ = [
+    "wavelength_visible_min",
+    "wavelength_visible_max",
     "d65_standard_illuminant",
     "color_matching_x",
     "color_matching_y",
@@ -13,6 +15,10 @@ __all__ = [
     "XYZ_from_xyY_cie",
     "sRGB",
 ]
+
+
+wavelength_visible_min = 380 * u.nm
+wavelength_visible_max = 700 * u.nm
 
 
 def d65_standard_illuminant(
