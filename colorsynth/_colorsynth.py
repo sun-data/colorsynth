@@ -71,6 +71,8 @@ def d65_standard_illuminant(
         x=wavelength,
         xp=wavl,
         fp=spd,
+        left=0,
+        right=0,
     )
     return result
 
