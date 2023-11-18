@@ -1,3 +1,4 @@
+from typing import Callable
 import pathlib
 import numpy as np
 import astropy.units as u
@@ -14,6 +15,9 @@ __all__ = [
     "xyY_from_XYZ_cie",
     "XYZ_from_xyY_cie",
     "sRGB",
+    "rgb",
+    "colorbar",
+    "rgb_and_colorbar",
 ]
 
 
@@ -530,3 +534,346 @@ def sRGB(
     result[not_where] = 1.055 * result[not_where] ** (1 / 2.4) - 0.055
 
     return result
+
+
+def _transform_normalize(
+    a: np.ndarray,
+    axis: int,
+    vmin: None | np.ndarray,
+    vmax: None | np.ndarray,
+    norm: None | Callable[[np.ndarray], np.ndarray],
+) -> Callable[[np.ndarray], np.ndarray]:
+    axis_orthogonal = list(range(a.ndim))
+    axis_orthogonal.pop(axis)
+    axis_orthogonal = tuple(axis_orthogonal)
+
+    if vmin is None:
+        vmin = np.nanmin(a, axis=axis_orthogonal, keepdims=True)
+    if vmax is None:
+        vmax = np.nanmax(a, axis=axis_orthogonal, keepdims=True)
+    if norm is None:
+        norm = lambda x: x
+
+    def result(x: np.ndarray):
+        vmin_normalized = norm(vmin)
+        vmax_normalized = norm(vmax)
+        x_normalized = norm(x)
+        x = (x_normalized - vmin_normalized) / (vmax_normalized - vmin_normalized)
+        return x
+
+    return result
+
+
+def _transform_wavelength(
+    wavelength: u.Quantity,
+    axis: int,
+    vmin: None | np.ndarray,
+    vmax: None | np.ndarray,
+    norm: None | Callable[[np.ndarray], np.ndarray],
+):
+    if vmin is None:
+        vmin = np.nanmin(wavelength)
+    if vmax is None:
+        vmax = np.nanmax(wavelength)
+
+    transform_normalize = _transform_normalize(
+        a=wavelength,
+        axis=axis,
+        vmin=vmin,
+        vmax=vmax,
+        norm=norm,
+    )
+
+    def result(x: u.Quantity):
+        x = transform_normalize(x)
+        wavelength_visible_range = wavelength_visible_max - wavelength_visible_min
+        x = wavelength_visible_range * x + wavelength_visible_min
+        return x
+
+    return result
+
+
+def _transform_spd_wavelength(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int,
+    spd_min: None | np.ndarray,
+    spd_max: None | np.ndarray,
+    spd_norm: None | Callable[[np.ndarray], np.ndarray],
+    wavelength_min: None | u.Quantity,
+    wavelength_max: None | u.Quantity,
+    wavelength_norm: None | Callable[[u.Quantity], u.Quantity],
+) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    transform_wavelength = _transform_wavelength(
+        wavelength=wavelength,
+        axis=axis,
+        vmin=wavelength_min,
+        vmax=wavelength_max,
+        norm=wavelength_norm,
+    )
+
+    transform_spd_normalize = _transform_normalize(
+        a=spd,
+        axis=axis,
+        vmin=spd_min,
+        vmax=spd_max,
+        norm=spd_norm,
+    )
+
+    def transform_spd_wavelength(x: np.ndarray, w: u.Quantity):
+        w = transform_wavelength(w)
+        d65 = d65_standard_illuminant(w)
+        x = d65 * transform_spd_normalize(x)
+        return x, w
+
+    return transform_spd_wavelength
+
+
+def rgb(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int = -1,
+    spd_min: None | np.ndarray = None,
+    spd_max: None | np.ndarray = None,
+    spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
+    wavelength_min: None | u.Quantity = None,
+    wavelength_max: None | u.Quantity = None,
+    wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+):
+    """
+    Convert a given spectral power distribution into a RGB array that can
+    be plotted with matplotlib.
+
+    Parameters
+    ----------
+    spd
+        a spectral power distribution to be converted into a RGB array
+    wavelength
+        the wavelength array corresponding to the spectral power distribution
+    axis
+        the logical axis corresponding to changing wavelength,
+        or the axis along which to integrate the spectral power distribution
+    spd_min
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_max
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_norm
+        an optional function to transform the spectral power distribution
+        values before mapping to RGB
+    wavelength_min
+        the wavelength value that is mapped to the minimum wavelength of the
+        human visible color range, 380 nm.
+    wavelength_max
+        the wavelength value that is mapped to the maximum wavelength of the
+        human visible color range, 700 nm
+    wavelength_norm
+        an optional function to transform the wavelength values before they
+        are mapped into the human visible color range.
+    """
+    spd, wavelength = np.broadcast_arrays(spd, wavelength, subok=True)
+
+    transform_spd_wavelength = _transform_spd_wavelength(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_min=spd_min,
+        spd_max=spd_max,
+        spd_norm=spd_norm,
+        wavelength_min=wavelength_min,
+        wavelength_max=wavelength_max,
+        wavelength_norm=wavelength_norm,
+    )
+
+    spd, wavelength = transform_spd_wavelength(spd, wavelength)
+
+    XYZ = XYZcie1931_from_spd(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+    )
+
+    RGB = sRGB(
+        XYZ=XYZ,
+        axis=axis,
+    )
+
+    RGB = RGB.to_value(u.dimensionless_unscaled)
+
+    return RGB
+
+
+def colorbar(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int = -1,
+    spd_min: None | np.ndarray = None,
+    spd_max: None | np.ndarray = None,
+    spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
+    wavelength_min: None | u.Quantity = None,
+    wavelength_max: None | u.Quantity = None,
+    wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate the colorbar corresponding to calling :func:`rgb` with these
+    same arguments.
+
+    The return value from this function is designed to be used directly
+    by :func:`matplolib.pyplot.pcolormesh`.
+
+    Parameters
+    ----------
+    spd
+        a spectral power distribution to be converted into a RGB array
+    wavelength
+        the wavelength array corresponding to the spectral power distribution
+    axis
+        the logical axis corresponding to changing wavelength,
+        or the axis along which to integrate the spectral power distribution
+    spd_min
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_max
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_norm
+        an optional function to transform the spectral power distribution
+        values before mapping to RGB
+    wavelength_min
+        the wavelength value that is mapped to the minimum wavelength of the
+        human visible color range, 380 nm.
+    wavelength_max
+        the wavelength value that is mapped to the maximum wavelength of the
+        human visible color range, 700 nm
+    wavelength_norm
+        an optional function to transform the wavelength values before they
+        are mapped into the human visible color range.
+    """
+    spd, wavelength = np.broadcast_arrays(spd, wavelength, subok=True)
+
+    transform_spd_wavelength = _transform_spd_wavelength(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_min=spd_min,
+        spd_max=spd_max,
+        spd_norm=spd_norm,
+        wavelength_min=wavelength_min,
+        wavelength_max=wavelength_max,
+        wavelength_norm=wavelength_norm,
+    )
+
+    if spd_min is None:
+        spd_min = spd.min()
+    else:
+        spd_min = np.min(spd_min)
+
+    if spd_max is None:
+        spd_max = spd.max()
+    else:
+        spd_max = np.max(spd_max)
+
+    if wavelength_min is None:
+        wavelength_min = wavelength.min()
+    else:
+        wavelength_min = np.min(wavelength_min)
+
+    if wavelength_max is None:
+        wavelength_max = wavelength.max()
+    else:
+        wavelength_max = np.max(wavelength_max)
+
+    intensity = np.linspace(
+        start=spd_min,
+        stop=spd_max,
+        num=101,
+    )
+
+    wavelength = np.linspace(
+        start=wavelength_min,
+        stop=wavelength_max,
+        num=spd.shape[axis],
+    )
+
+    spd = np.ones(wavelength.shape)
+    spd = np.diagflat(spd)
+    spd = spd[:, np.newaxis, :] * intensity[np.newaxis, :, np.newaxis]
+
+    spd_, wavelength_ = transform_spd_wavelength(spd, wavelength)
+
+    XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=~0)
+    RGB = sRGB(XYZ, axis=~0)
+
+    RGB = RGB.to_value(u.dimensionless_unscaled)
+
+    RGB = np.clip(RGB, 0, 1)
+
+    wavelength = wavelength[:, np.newaxis]
+    intensity = intensity[np.newaxis, :]
+
+    wavelength, intensity = np.broadcast_arrays(wavelength, intensity, subok=True)
+
+    return intensity, wavelength, RGB
+
+
+def rgb_and_colorbar(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int = -1,
+    spd_min: None | np.ndarray = None,
+    spd_max: None | np.ndarray = None,
+    spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
+    wavelength_min: None | u.Quantity = None,
+    wavelength_max: None | u.Quantity = None,
+    wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """
+    Convenience function that calls :func:`rgb` and :func:`colorbar` and
+    returns the results as a tuple.
+
+    Parameters
+    ----------
+    spd
+        a spectral power distribution to be converted into a RGB array
+    wavelength
+        the wavelength array corresponding to the spectral power distribution
+    axis
+        the logical axis corresponding to changing wavelength,
+        or the axis along which to integrate the spectral power distribution
+    spd_min
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_max
+        the value of the spectral power distribution representing minimum
+        intensity.
+    spd_norm
+        an optional function to transform the spectral power distribution
+        values before mapping to RGB
+    wavelength_min
+        the wavelength value that is mapped to the minimum wavelength of the
+        human visible color range, 380 nm.
+    wavelength_max
+        the wavelength value that is mapped to the maximum wavelength of the
+        human visible color range, 700 nm
+    wavelength_norm
+        an optional function to transform the wavelength values before they
+        are mapped into the human visible color range.
+    """
+
+    kwargs = dict(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_min=spd_min,
+        spd_max=spd_max,
+        spd_norm=spd_norm,
+        wavelength_min=wavelength_min,
+        wavelength_max=wavelength_max,
+        wavelength_norm=wavelength_norm,
+    )
+
+    RGB = rgb(**kwargs)
+    cbar = colorbar(**kwargs)
+
+    return RGB, cbar
