@@ -61,6 +61,12 @@ def d65_standard_illuminant(
     path = pathlib.Path(__file__).parent / "data/std65.txt"
     wavl, spd = np.genfromtxt(path, skip_header=1, unpack=True)
     wavl = wavl << u.nm
+
+    ybar = color_matching_y(wavl)
+    Y = np.trapz(x=wavl, y=ybar * spd)
+
+    spd = spd / Y
+
     result = np.interp(
         x=wavelength,
         xp=wavl,
