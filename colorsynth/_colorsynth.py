@@ -765,24 +765,20 @@ def colorbar(
     )
 
     if spd_min is None:
-        spd_min = spd.min()
-    else:
-        spd_min = np.min(spd_min)
+        spd_min = spd
+    spd_min = np.min(spd_min)
 
     if spd_max is None:
-        spd_max = spd.max()
-    else:
-        spd_max = np.max(spd_max)
+        spd_max = spd
+    spd_max = np.max(spd_max)
 
     if wavelength_min is None:
-        wavelength_min = wavelength.min()
-    else:
-        wavelength_min = np.min(wavelength_min)
+        wavelength_min = wavelength
+    wavelength_min = np.min(wavelength_min)
 
     if wavelength_max is None:
-        wavelength_max = wavelength.max()
-    else:
-        wavelength_max = np.max(wavelength_max)
+        wavelength_max = wavelength
+    wavelength_max = np.max(wavelength_max)
 
     intensity = np.linspace(
         start=spd_min,
