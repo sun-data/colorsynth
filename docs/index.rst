@@ -21,6 +21,9 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
 
 .. jupyter-execute::
 
+    import shutil
+    import urllib
+    import pathlib
     import numpy as np
     import matplotlib.pyplot as plt
     import astropy.units as u
@@ -29,25 +32,35 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
     import astropy.io
     import colorsynth
 
-    hdu_list = astropy.io.fits.open(
-        "https://www.lmsal.com/solarsoft/irisa/data/level2_compressed/2014/03/17/20140317Mosaic/IRISMosaic_20140317_Si1393.fits.gz"
+    archive, _ = path, headers = urllib.request.urlretrieve(
+        url=r"https://www.lmsal.com/solarsoft/irisa/data/level2_compressed/2021/09/23/20210923_061339_3620108077/iris_l2_20210923_061339_3620108077_raster.tar.gz",
+        filename="raster.tar.gz",
     )
-    hdu = hdu_list[0]
+
+    directory = pathlib.Path("raster")
+    shutil.unpack_archive(filename=archive, extract_dir=directory)
+    fits = list(directory.glob("*.fits"))
+
+    hdu_list = astropy.io.fits.open(fits[0])
+    hdu = hdu_list[4]
+
+    wcs = astropy.wcs.WCS(hdu)
+    wcs
 
     wcs = astropy.wcs.WCS(hdu)
     axes = list(reversed(wcs.axis_type_names))
-    axis_x = axes.index("Solar X")
-    axis_y = axes.index("Solar Y")
-    axis_wavelength =  axes.index("Wavelength")
+    axis_x = axes.index("HPLN")
+    axis_y = axes.index("HPLT")
+    axis_wavelength =  axes.index("WAVE")
     axis_xy = (axis_x, axis_y)
 
     spd = hdu.data
 
-    wavelength_center = wcs.wcs.crval[~axis_wavelength] * u.AA
-    hx, hy, wavelength = wcs.array_index_to_world_values(*np.indices(spd.shape))
-    hx = hx * u.arcsec
-    hy = hy * u.arcsec
-    wavelength = wavelength * u.AA
+    wavelength_center = hdu_list[0].header["TWAVE4"] * u.AA
+    wavelength, hy, hx = wcs.array_index_to_world_values(*np.indices(spd.shape))
+    hx = hx * u.deg << u.arcsec
+    hy = hy * u.deg << u.arcsec
+    wavelength = wavelength * u.m << u.AA
     velocity = (wavelength - wavelength_center) * astropy.constants.c / wavelength_center
     velocity = velocity.to(u.km / u.s)
 
@@ -56,16 +69,24 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
         wavelength=velocity,
         axis=axis_wavelength,
         spd_min=0,
-        spd_max=1.1*np.percentile(spd, 99.5, axis=axis_xy, keepdims=True),
+        spd_max=1.1*np.percentile(spd, 99, axis=axis_xy, keepdims=True),
+    #     spd_norm=lambda x: np.nan_to_num(np.sqrt(x)),
+        wavelength_min=-100 * u.km / u.s,
+        wavelength_max=+100 * u.km / u.s,
         wavelength_norm=lambda x: np.arcsinh(x / (25 * u.km / u.s))
     )
 
     with astropy.visualization.quantity_support():
-        fig, axs = plt.subplots(ncols=2, gridspec_kw=dict(width_ratios=[.95,.05]), constrained_layout=True)
+        fig, axs = plt.subplots(
+            ncols=2,
+            figsize=(8, 8),
+            gridspec_kw=dict(width_ratios=[.9,.1]),
+            constrained_layout=True,
+        )
         axs[0].pcolormesh(
             hx.mean(axis_wavelength),
             hy.mean(axis_wavelength),
-            np.clip(np.moveaxis(rgb, 0, ~0), 0, 1),
+            np.clip(np.moveaxis(rgb, axis_wavelength, ~0), 0, 1),
         )
         axs[0].set_aspect("equal")
         axs[1].pcolormesh(*colorbar)
