@@ -26,6 +26,7 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
     import pathlib
     import numpy as np
     import matplotlib.pyplot as plt
+    import scipy.ndimage
     import astropy.units as u
     import astropy.visualization
     import astropy.wcs
