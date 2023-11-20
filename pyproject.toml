@@ -33,6 +33,8 @@ doc = [
     "ipykernel",
     "jupyter-sphinx",
     "sphinx-favicon",
+    "scipy",
+    "astroscrappy",
 ]
 
 [project.urls]
