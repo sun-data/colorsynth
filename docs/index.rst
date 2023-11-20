@@ -30,6 +30,7 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
     import astropy.visualization
     import astropy.wcs
     import astropy.io
+    import astroscrappy
     import colorsynth
 
     # Download tar.gz archive containing IRIS raster FITS files
