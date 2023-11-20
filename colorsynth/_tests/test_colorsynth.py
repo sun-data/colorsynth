@@ -1,3 +1,4 @@
+from typing import Callable
 import pytest
 import numpy as np
 import astropy.units as u
@@ -192,14 +193,20 @@ def test_colorbar(
         np.linspace(380, 780, num=101) * u.nm,
     ],
 )
+@pytest.mark.parametrize(
+    argnames="spd_norm",
+    argvalues=[None, np.sqrt],
+)
 def test_rgb_and_colorbar(
     spd: np.ndarray,
     wavelength: u.Quantity,
+    spd_norm: None | Callable,
 ):
     axis = -1
     result = colorsynth.rgb_and_colorbar(
         spd=spd,
         wavelength=wavelength,
         axis=axis,
+        spd_norm=spd_norm,
     )
     assert isinstance(result, tuple)
