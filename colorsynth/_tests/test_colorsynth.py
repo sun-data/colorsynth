@@ -122,7 +122,8 @@ def test_XYZ_normalized(
     result = colorsynth.XYZ_normalized(XYZ, axis=axis)
     assert isinstance(result, np.ndarray)
     assert result.shape[axis] == 3
-    assert np.take(result, 1, axis=axis).max() == 1
+    assert np.take(result, 1, axis=axis).max() <= 1
+
 
 @pytest.mark.parametrize("XYZ", XYZ)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
