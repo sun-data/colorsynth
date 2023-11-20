@@ -1,3 +1,4 @@
+from typing import Callable
 import pytest
 import numpy as np
 import astropy.units as u
@@ -132,3 +133,91 @@ def test_sRGB(
     result = colorsynth.sRGB(XYZ, axis=axis)
     assert isinstance(result, np.ndarray)
     assert result.shape[axis] == 3
+
+
+@pytest.mark.parametrize(
+    argnames="spd",
+    argvalues=[
+        np.random.uniform(size=(101,)),
+        np.random.uniform(size=(64, 64, 101)),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="wavelength",
+    argvalues=[
+        np.linspace(380, 780, num=101) * u.nm,
+    ],
+)
+def test_rgb(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+):
+    axis = -1
+    result = colorsynth.rgb(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+    )
+    assert isinstance(result, np.ndarray)
+    assert result.shape[axis] == 3
+
+
+@pytest.mark.parametrize(
+    argnames="spd",
+    argvalues=[
+        np.random.uniform(size=(101,)),
+        np.random.uniform(size=(64, 64, 101)),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="wavelength",
+    argvalues=[
+        np.linspace(380, 780, num=101) * u.nm,
+    ],
+)
+def test_colorbar(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+):
+    axis = -1
+    result = colorsynth.colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+    )
+    assert isinstance(result, tuple)
+    assert len(result) == 3
+    for arr in result:
+        assert isinstance(arr, np.ndarray)
+
+
+@pytest.mark.parametrize(
+    argnames="spd",
+    argvalues=[
+        np.random.uniform(size=(101,)),
+        np.random.uniform(size=(64, 64, 101)),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="wavelength",
+    argvalues=[
+        np.linspace(380, 780, num=101) * u.nm,
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="spd_norm",
+    argvalues=[None, np.sqrt],
+)
+def test_rgb_and_colorbar(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    spd_norm: None | Callable,
+):
+    axis = -1
+    result = colorsynth.rgb_and_colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_norm=spd_norm,
+    )
+    assert isinstance(result, tuple)
