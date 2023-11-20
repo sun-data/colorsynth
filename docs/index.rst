@@ -32,50 +32,73 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
     import astropy.io
     import colorsynth
 
+    # Download tar.gz archive containing IRIS raster FITS files
     archive, _ = path, headers = urllib.request.urlretrieve(
         url=r"https://www.lmsal.com/solarsoft/irisa/data/level2_compressed/2021/09/23/20210923_061339_3620108077/iris_l2_20210923_061339_3620108077_raster.tar.gz",
         filename="raster.tar.gz",
     )
 
+    # Unpack tar.gz archive into folder
     directory = pathlib.Path("raster")
     shutil.unpack_archive(filename=archive, extract_dir=directory)
     fits = list(directory.glob("*.fits"))
 
+    # Open FITS file containing IRIS spectroheliograms
     hdu_list = astropy.io.fits.open(fits[0])
     hdu = hdu_list[4]
 
+    # Create World Coordinate System instance from the FITS header
     wcs = astropy.wcs.WCS(hdu)
-    wcs
 
-    wcs = astropy.wcs.WCS(hdu)
+    # Determine the physical meaning of each axis in the FITS file
     axes = list(reversed(wcs.axis_type_names))
     axis_x = axes.index("HPLN")
     axis_y = axes.index("HPLT")
     axis_wavelength =  axes.index("WAVE")
     axis_xy = (axis_x, axis_y)
 
+    # Save spectroheliogram data to a local variable
     spd = hdu.data
+    where_valid = spd > -10
+    spd[~where_valid] = 0
 
+    # Remove cosmic ray spikes from the spectroheliogram
+    for i in range(spd.shape[0]):
+        spd[i] = astroscrappy.detect_cosmics(spd[i], cleantype="medmask")[1]
+
+    # Calculate an estimate of the stray light in the spectroheliogram
+    bg = np.median(spd, axis=0)
+    bg = scipy.ndimage.median_filter(bg, size=(31, 151))
+    bg = scipy.ndimage.uniform_filter(bg, size=31)
+
+    # Remove the stray light from the spectroheliogram
+    spd = spd - bg
+    spd[~where_valid] = 0
+
+    # Calculate coordinate arrays in wavelength and helioprojective x/y
+    wavelength, hy, hx = wcs.array_index_to_world(*np.indices(spd.shape))
+    hx = hx << u.arcsec
+    hy = hy << u.arcsec
+    wavelength = wavelength << u.AA
+
+    # Convert wavelength coordinates to Doppler shift
     wavelength_center = hdu_list[0].header["TWAVE4"] * u.AA
-    wavelength, hy, hx = wcs.array_index_to_world_values(*np.indices(spd.shape))
-    hx = hx * u.deg << u.arcsec
-    hy = hy * u.deg << u.arcsec
-    wavelength = wavelength * u.m << u.AA
     velocity = (wavelength - wavelength_center) * astropy.constants.c / wavelength_center
     velocity = velocity.to(u.km / u.s)
 
+    # Convert spectroheliogram to an RGB image
     rgb, colorbar = colorsynth.rgb_and_colorbar(
         spd=spd,
         wavelength=velocity,
         axis=axis_wavelength,
         spd_min=0,
-        spd_max=1.1*np.percentile(spd, 99, axis=axis_xy, keepdims=True),
-    #     spd_norm=lambda x: np.nan_to_num(np.sqrt(x)),
+        spd_max=np.percentile(spd, 99, axis=axis_xy, keepdims=True),
         wavelength_min=-100 * u.km / u.s,
         wavelength_max=+100 * u.km / u.s,
         wavelength_norm=lambda x: np.arcsinh(x / (25 * u.km / u.s))
     )
 
+    # Plot the RGB image
     with astropy.visualization.quantity_support():
         fig, axs = plt.subplots(
             ncols=2,
