@@ -767,11 +767,11 @@ def colorbar(
 
     if spd_min is None:
         spd_min = spd
-    spd_min = np.min(spd_min)
+    spd_min = np.nanmin(spd_min)
 
     if spd_max is None:
         spd_max = spd
-    spd_max = np.max(spd_max)
+    spd_max = np.nanmax(spd_max)
 
     if wavelength_min is None:
         wavelength_min = wavelength
@@ -782,8 +782,8 @@ def colorbar(
     wavelength_max = np.max(wavelength_max)
 
     intensity = np.linspace(
-        start=spd_min,
-        stop=spd_max,
+        start=0,
+        stop=spd_max - spd_min,
         num=101,
     )
 
@@ -795,7 +795,7 @@ def colorbar(
 
     spd = np.ones(wavelength.shape)
     spd = np.diagflat(spd)
-    spd = spd[:, np.newaxis, :] * intensity[np.newaxis, :, np.newaxis]
+    spd = spd[:, np.newaxis, :] * intensity[np.newaxis, :, np.newaxis] + spd_min
 
     spd_, wavelength_ = transform_spd_wavelength(spd, wavelength)
 
