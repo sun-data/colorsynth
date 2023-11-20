@@ -113,6 +113,17 @@ def test_XYZ_from_xyY_cie(
 
 
 @pytest.mark.parametrize("XYZ", XYZ)
+@pytest.mark.parametrize("axis", [-1])
+def test_XYZ_normalized(
+    XYZ: np.ndarray,
+    axis: int,
+):
+    result = colorsynth.XYZ_normalized(XYZ, axis=axis)
+    assert isinstance(result, np.ndarray)
+    assert result.shape[axis] == 3
+    assert np.take(result, 1, axis=axis).max() == 1
+
+@pytest.mark.parametrize("XYZ", XYZ)
 @pytest.mark.parametrize(argnames="axis", argvalues=[-1])
 def test_sRGB(
     XYZ: np.ndarray,

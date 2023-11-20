@@ -13,6 +13,7 @@ __all__ = [
     "XYZcie1931_from_spd",
     "xyY_from_XYZ_cie",
     "XYZ_from_xyY_cie",
+    "XYZ_normalized",
     "sRGB",
 ]
 
@@ -372,6 +373,30 @@ def XYZ_from_xyY_cie(
     Z = r * (1 - x - y)
     result = np.stack([X, Y, Z], axis=axis)
     return result
+
+
+def XYZ_normalized(
+    XYZ: np.ndarray,
+    axis: int = -1,
+):
+    """
+    Normalize the luminance of a vector in the CIE 1931 :math:`XYZ` color space.
+
+    This function converts to the `xyY` color space,
+    scales :math:`Y` to 1,
+    and then converts back into the `XYZ` color space
+
+    Parameters
+    ----------
+    XYZ
+        color values in a CIE 1931 :math:`XYZ` color space to be normalized
+    axis
+        the axis along which the color space values are distributed
+    """
+    xyY = xyY_from_XYZ_cie(XYZ, axis=axis)
+    x, y, Y = np.moveaxis(xyY, source=axis, destination=0)
+    Y /= Y.max()
+    return XYZ_from_xyY_cie(xyY, axis=axis)
 
 
 def sRGB(
