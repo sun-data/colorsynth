@@ -17,6 +17,7 @@ pip install colorsynth
 ## Gallery
 
 An Si IV 1403 A spectroheliogram captured by the [Interface Region Imaging Spectrograph](iris.lmsal.com) and colorized using 
-[`colorsynth.rgb()`](https://colorsynth.readthedocs.io/en/latest/_autosummary/colorsynth.rgb.html#colorsynth.rgb).
+[`colorsynth.rgb()`](https://colorsynth.readthedocs.io/en/latest/_autosummary/colorsynth.rgb.html#colorsynth.rgb). 
+The code to create this image can be found in the [documentation](https://colorsynth.readthedocs.io/).
 
 ![IRIS spectroheliogram](https://colorsynth.readthedocs.io/en/latest/_images/index_0_1.png)
