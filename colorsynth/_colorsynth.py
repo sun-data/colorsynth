@@ -618,13 +618,16 @@ def _transform_spd_wavelength(
         axis=axis,
         vmin=spd_min,
         vmax=spd_max,
-        norm=spd_norm,
+        norm=None,
     )
 
     def transform_spd_wavelength(x: np.ndarray, w: u.Quantity):
         w = transform_wavelength(w)
         d65 = d65_standard_illuminant(w)
-        x = d65 * transform_spd_normalize(x)
+        x = transform_spd_normalize(x)
+        if spd_norm is not None:
+            x = spd_norm(x)
+        x = d65 * x
         return x, w
 
     return transform_spd_wavelength
