@@ -559,6 +559,7 @@ def _transform_normalize(
         vmax_normalized = norm(vmax)
         x_normalized = norm(x)
         x = (x_normalized - vmin_normalized) / (vmax_normalized - vmin_normalized)
+        x = np.nan_to_num(x)
         return x
 
     return result
