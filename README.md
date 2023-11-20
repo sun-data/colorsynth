@@ -5,4 +5,18 @@
 [![Black](https://github.com/sun-data/colorsynth/actions/workflows/black.yml/badge.svg)](https://github.com/sun-data/colorsynth/actions/workflows/black.yml)
 [![Documentation Status](https://readthedocs.org/projects/colorsynth/badge/?version=latest)](https://colorsynth.readthedocs.io/en/latest/?badge=latest)
 
-A Python library for creating false-color images from Numpy arrays of spectral intensity
+A Python library for creating false-color images from 3D Numpy arrays of spectral intensity.
+
+## Installation
+
+`colorsynth` is available on the Python Package Index and can be installed using `pip`:
+```
+pip install colorsynth
+```
+
+## Gallery
+
+An Si IV 1403 A spectroheliogram captured by the [Interface Region Imaging Spectrograph](iris.lmsal.com) and colorized using 
+[`colorsynth.rgb()`](https://colorsynth.readthedocs.io/en/latest/_autosummary/colorsynth.rgb.html#colorsynth.rgb).
+
+![IRIS spectroheliogram](https://colorsynth.readthedocs.io/en/latest/_images/index_0_1.png)
