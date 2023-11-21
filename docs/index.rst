@@ -1,6 +1,19 @@
 Introduction
 ============
 
+Colorsynth is a package designed to collapse one dimension of a :class:`numpy.ndarray`
+into red, green, and blue (:math:`RGB`) channels that can be displayed on your computer monitor.
+
+Installation
+============
+
+:mod:`colorsynth` is available on the PyPI and can be installed using ``pip``::
+
+    pip install colorsynth
+
+API Reference
+=============
+
 .. autosummary::
     :toctree: _autosummary
     :template: module_custom.rst
@@ -117,6 +130,8 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
         axs[1].pcolormesh(*colorbar)
         axs[1].yaxis.tick_right()
         axs[1].yaxis.set_label_position("right")
+
+|
 
 Bibliography
 ============
