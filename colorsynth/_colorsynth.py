@@ -749,7 +749,7 @@ def colorbar(
     same arguments.
 
     The return value from this function is designed to be used directly
-    by :func:`matplolib.pyplot.pcolormesh`.
+    by :func:`matplotlib.pyplot.pcolormesh`.
 
     Parameters
     ----------
