@@ -757,6 +757,7 @@ def rgb(
     )
 
     RGB = RGB.to_value(u.dimensionless_unscaled)
+    RGB = np.clip(RGB, 0, 1)
 
     return RGB
 
