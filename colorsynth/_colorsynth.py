@@ -764,7 +764,7 @@ def rgb(
 
 def colorbar(
     spd: np.ndarray,
-    wavelength: u.Quantity,
+    wavelength: None | u.Quantity = None,
     axis: int = -1,
     spd_min: None | np.ndarray = None,
     spd_max: None | np.ndarray = None,
@@ -785,7 +785,9 @@ def colorbar(
     spd
         a spectral power distribution to be converted into a RGB array
     wavelength
-        the wavelength array corresponding to the spectral power distribution
+        The wavelength array corresponding to the spectral power distribution.
+        If :obj:`None`, the wavelength is assumed to be evenly sampled across
+        the human visible color range.
     axis
         the logical axis corresponding to changing wavelength,
         or the axis along which to integrate the spectral power distribution
@@ -808,6 +810,12 @@ def colorbar(
         an optional function to transform the wavelength values before they
         are mapped into the human visible color range.
     """
+    if wavelength is None:
+        shape_wavelength = [1] * spd.ndim
+        shape_wavelength[axis] = -1
+        wavelength = np.linspace(0, 1, num=spd.shape[axis])
+        wavelength = wavelength.reshape(shape_wavelength)
+
     spd, wavelength = np.broadcast_arrays(spd, wavelength, subok=True)
 
     transform_spd_wavelength = _transform_spd_wavelength(

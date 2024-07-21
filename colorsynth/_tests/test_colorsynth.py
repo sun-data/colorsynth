@@ -174,6 +174,7 @@ def test_rgb(
 @pytest.mark.parametrize(
     argnames="wavelength",
     argvalues=[
+        None,
         np.linspace(380, 780, num=101) * u.nm,
     ],
 )
