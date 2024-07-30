@@ -101,15 +101,19 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
     velocity = (wavelength - wavelength_center) * astropy.constants.c / wavelength_center
     velocity = velocity.to(u.km / u.s)
 
+    # Define the velocity range to colorize
+    velocity_min = -100 * u.km / u.s
+    velocity_max = +100 * u.km / u.s
+
     # Convert spectroheliogram to an RGB image
     rgb, colorbar = colorsynth.rgb_and_colorbar(
         spd=spd,
-        wavelength=velocity,
+        wavelength=velocity.mean(axis_xy, keepdims=True),
         axis=axis_wavelength,
         spd_min=0,
         spd_max=np.percentile(spd, 99, axis=axis_xy, keepdims=True),
-        wavelength_min=-100 * u.km / u.s,
-        wavelength_max=+100 * u.km / u.s,
+        wavelength_min=velocity_min,
+        wavelength_max=velocity_max,
         wavelength_norm=lambda x: np.arcsinh(x / (25 * u.km / u.s))
     )
 
@@ -130,7 +134,7 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
         axs[1].pcolormesh(*colorbar)
         axs[1].yaxis.tick_right()
         axs[1].yaxis.set_label_position("right")
-
+        axs[1].set_ylim(velocity_min, velocity_max)
 |
 
 Bibliography
