@@ -856,6 +856,7 @@ def colorbar(
         import matplotlib.pyplot as plt
         import astropy.units as u
         import astropy.visualization
+        import colorsynth
 
         # Define a random 3d cube
         a = np.random.uniform(
