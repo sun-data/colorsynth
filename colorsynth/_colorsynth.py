@@ -561,13 +561,13 @@ def sRGB(
     return result
 
 
-def _transform_normalize(
+def _bounds_normalize(
     a: np.ndarray,
     axis: int,
     vmin: None | np.ndarray,
     vmax: None | np.ndarray,
-    norm: None | Callable[[np.ndarray], np.ndarray],
-) -> Callable[[np.ndarray], np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
+
     axis_orthogonal = list(range(a.ndim))
     axis_orthogonal.pop(axis)
     axis_orthogonal = tuple(axis_orthogonal)
@@ -576,6 +576,25 @@ def _transform_normalize(
         vmin = np.nanmin(a, axis=axis_orthogonal, keepdims=True)
     if vmax is None:
         vmax = np.nanmax(a, axis=axis_orthogonal, keepdims=True)
+
+    return vmin, vmax
+
+
+def _transform_normalize(
+    a: np.ndarray,
+    axis: int,
+    vmin: None | np.ndarray,
+    vmax: None | np.ndarray,
+    norm: None | Callable[[np.ndarray], np.ndarray],
+) -> Callable[[np.ndarray], np.ndarray]:
+
+    vmin, vmax = _bounds_normalize(
+        a=a,
+        axis=axis,
+        vmin=vmin,
+        vmax=vmax,
+    )
+
     if norm is None:
         norm = lambda x: x
 
@@ -766,12 +785,15 @@ def colorbar(
     spd: np.ndarray,
     wavelength: None | u.Quantity = None,
     axis: int = -1,
+    axis_intensity: int = 0,
+    axis_wavelength: int = 1,
     spd_min: None | np.ndarray = None,
     spd_max: None | np.ndarray = None,
     spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
     wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+    squeeze: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the colorbar corresponding to calling :func:`rgb` with these
@@ -789,8 +811,14 @@ def colorbar(
         If :obj:`None`, the wavelength is assumed to be evenly sampled across
         the human visible color range.
     axis
-        the logical axis corresponding to changing wavelength,
+        The logical axis corresponding to changing wavelength,
         or the axis along which to integrate the spectral power distribution
+    axis_intensity
+        The index of  new logical axis in the result which corresponds to changing
+        spectral radiance.
+    axis_wavelength
+        The index of a new logical axis in the result which corresponds to
+        changing wavelength.
     spd_min
         the value of the spectral power distribution representing minimum
         intensity.
@@ -809,6 +837,52 @@ def colorbar(
     wavelength_norm
         an optional function to transform the wavelength values before they
         are mapped into the human visible color range.
+    squeeze
+        A boolean flag indicating whether to remove singleton dimensions
+        from the result.
+        If you're just making a single colorbar, this should be :obj:`True`
+        (the default) so :func:`matplotlib.pyplot.pcolormesh` will work correctly.
+        If you're making a stack of colorbars, you might want to set this to
+        :obj:`False` so that you don't lose track of axis meanings.
+
+    Examples
+    --------
+
+    Plot the colorbar corresponding to a random, 3D cube.
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import astropy.units as u
+        import astropy.visualization
+        import colorsynth
+
+        # Define a random 3d cube
+        a = np.random.uniform(
+            low=0,
+            high=1000,
+            size=(16, 16, 11),
+        ) * u.photon
+
+        # Define wavelength axis
+        wavelength = np.linspace(
+            start=100 * u.AA,
+            stop=200 * u.AA,
+            num=a.shape[~0],
+        )
+
+        # Compute the colorbar corresponding to the random 3d cube.
+        colorbar = colorsynth.colorbar(
+            spd=a,
+            wavelength=wavelength,
+            axis=~0,
+        )
+
+        # Plot the colorbar
+        with astropy.visualization.quantity_support():
+            fig, ax = plt.subplots()
+            plt.pcolormesh(*colorbar)
     """
     if wavelength is None:
         shape_wavelength = [1] * spd.ndim
@@ -816,12 +890,16 @@ def colorbar(
         wavelength = np.linspace(0, 1, num=spd.shape[axis])
         wavelength = wavelength.reshape(shape_wavelength)
 
-    spd, wavelength = np.broadcast_arrays(spd, wavelength, subok=True)
+    shape = np.broadcast_shapes(spd.shape, wavelength.shape)
+    ndim = len(shape)
+    axis_ = ~range(ndim)[~axis]
+
+    shape_singleton = (1,) * ndim
 
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,
         wavelength=wavelength,
-        axis=axis,
+        axis=axis_,
         spd_min=spd_min,
         spd_max=spd_max,
         spd_norm=spd_norm,
@@ -830,39 +908,49 @@ def colorbar(
         wavelength_norm=wavelength_norm,
     )
 
-    if spd_min is None:
-        spd_min = spd
-    spd_min = np.nanmin(spd_min)
+    spd_min_, spd_max_ = _bounds_normalize(
+        a=spd,
+        axis=axis,
+        vmin=spd_min,
+        vmax=spd_max,
+    )
 
-    if spd_max is None:
-        spd_max = spd
-    spd_max = np.nanmax(spd_max)
+    spd_min_ = np.broadcast_to(
+        array=spd_min_,
+        shape=np.broadcast_shapes(np.shape(spd_min_), shape_singleton),
+        subok=True,
+    )
+    spd_max_ = np.broadcast_to(
+        array=spd_max_,
+        shape=np.broadcast_shapes(np.shape(spd_max_), shape_singleton),
+        subok=True,
+    )
 
-    if wavelength_min is None:
-        wavelength_min = wavelength
-    wavelength_min = np.min(wavelength_min)
-
-    if wavelength_max is None:
-        wavelength_max = wavelength
-    wavelength_max = np.max(wavelength_max)
+    spd_min_ = np.nanmin(spd_min_, axis=axis, keepdims=True)
+    spd_max_ = np.nanmax(spd_max_, axis=axis, keepdims=True)
 
     intensity = np.linspace(
         start=0,
-        stop=spd_max - spd_min,
+        stop=spd_max_ - spd_min_,
         num=101,
     )
 
-    wavelength = np.linspace(
-        start=wavelength_min,
-        stop=wavelength_max,
-        num=spd.shape[axis],
+    intensity = intensity[np.newaxis, :]
+
+    wavelength2 = wavelength[np.newaxis, np.newaxis]
+    wavelength2 = np.swapaxes(wavelength2, 0, axis_)
+
+    shape_cbar = np.broadcast_shapes(
+        intensity.shape,
+        wavelength.shape,
+        wavelength2.shape,
     )
 
-    spd = np.ones(wavelength.shape)
-    spd = np.diagflat(spd)
-    spd = spd[:, np.newaxis, :] * intensity[np.newaxis, :, np.newaxis] + spd_min
+    cbar = np.zeros(shape_cbar)
+    cbar[np.broadcast_to(wavelength == wavelength2, shape_cbar)] = 1
+    cbar = cbar * intensity + spd_min_
 
-    spd_, wavelength_ = transform_spd_wavelength(spd, wavelength)
+    spd_, wavelength_ = transform_spd_wavelength(cbar, wavelength)
 
     XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=~0)
     RGB = sRGB(XYZ, axis=~0)
@@ -871,12 +959,20 @@ def colorbar(
 
     RGB = np.clip(RGB, 0, 1)
 
-    wavelength = wavelength[:, np.newaxis]
-    intensity = intensity[np.newaxis, :]
+    wavelength2, intensity = np.broadcast_arrays(wavelength2, intensity, subok=True)
 
-    wavelength, intensity = np.broadcast_arrays(wavelength, intensity, subok=True)
+    if squeeze:
+        intensity = intensity.squeeze()
+        wavelength2 = wavelength2.squeeze()
+        RGB = RGB.squeeze()
 
-    return intensity, wavelength, RGB
+    source = (0, 1)
+    destination = (axis_wavelength, axis_intensity)
+    wavelength2 = np.moveaxis(wavelength2, source, destination)
+    intensity = np.moveaxis(intensity, source, destination)
+    RGB = np.moveaxis(RGB, source, destination)
+
+    return intensity, wavelength2, RGB
 
 
 def rgb_and_colorbar(
@@ -889,6 +985,7 @@ def rgb_and_colorbar(
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
     wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+    **kwargs_colorbar,
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Convenience function that calls :func:`rgb` and :func:`colorbar` and
@@ -921,6 +1018,8 @@ def rgb_and_colorbar(
     wavelength_norm
         an optional function to transform the wavelength values before they
         are mapped into the human visible color range.
+    kwargs_colorbar
+        Any additional keyword arguments needed by :func:`colorbar`.
     """
 
     kwargs = dict(
@@ -936,6 +1035,6 @@ def rgb_and_colorbar(
     )
 
     RGB = rgb(**kwargs)
-    cbar = colorbar(**kwargs)
+    cbar = colorbar(**kwargs, **kwargs_colorbar)
 
     return RGB, cbar
