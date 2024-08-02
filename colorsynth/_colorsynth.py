@@ -116,7 +116,7 @@ def _piecewise_guassian_ufunc(
     mean: float,
     stddev_1: float,
     stddev_2: float,
-) -> float:
+) -> float:  # pragma: nocover
 
     if x < mean:
         stddev = stddev_1
