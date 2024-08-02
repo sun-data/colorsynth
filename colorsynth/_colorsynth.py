@@ -89,20 +89,15 @@ def _piecewise_gaussian(
     mean: u.Quantity,
     stddev_1: u.Quantity,
     stddev_2: u.Quantity,
-):
-    if isinstance(x, u.Quantity):
-        unit = x.unit
-        x = x.value
-        mean = mean.to_value(unit)
-        stddev_1 = stddev_1.to_value(unit)
-        stddev_2 = stddev_2.to_value(unit)
-    else:
-        unit = None
+) -> np.ndarray:
+
+    unit = x.unit
+    x = x.value
+    mean = mean.to_value(unit)
+    stddev_1 = stddev_1.to_value(unit)
+    stddev_2 = stddev_2.to_value(unit)
 
     result = _piecewise_guassian_ufunc(x, mean, stddev_1, stddev_2)
-
-    if unit is not None:
-        result = result << unit
 
     return result
 
