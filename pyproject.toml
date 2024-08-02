@@ -15,6 +15,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
+    "numba",
     "matplotlib",
     "astropy",
 ]
