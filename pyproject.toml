@@ -36,6 +36,7 @@ doc = [
     "sphinx-favicon",
     "scipy",
     "astroscrappy",
+    "sphinx-codeautolink",
 ]
 
 [project.urls]

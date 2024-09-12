@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'jupyter_sphinx',
+    'sphinx_codeautolink',
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 autosummary_imported_members = True
@@ -98,9 +99,15 @@ bibtex_bibfiles = ['refs.bib']
 bibtex_default_style = 'plain'
 bibtex_reference_style = 'author_year'
 
+codeautolink_custom_blocks = {"jupyter-execute": None}
+codeautolink_warn_on_missing_inventory = True
+codeautolink_warn_on_failed_resolve = True
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
     'matplotlib': ('https://matplotlib.org/stable', None),
     'astropy': ('https://docs.astropy.org/en/stable/', None),
+    'astroscrappy': ('https://astroscrappy.readthedocs.io/en/stable/', None)
 }
