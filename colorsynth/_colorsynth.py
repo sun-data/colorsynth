@@ -979,8 +979,8 @@ def colorbar(
 
     spd_, wavelength_ = transform_spd_wavelength(cbar, wavelength)
 
-    XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=~0)
-    RGB = sRGB(XYZ, axis=~0)
+    XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=axis_)
+    RGB = sRGB(XYZ, axis=axis_)
 
     RGB = RGB.to_value(u.dimensionless_unscaled)
 
