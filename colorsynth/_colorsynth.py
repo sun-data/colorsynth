@@ -70,7 +70,7 @@ def d65_standard_illuminant(
     wavl = wavl << u.nm
 
     ybar = color_matching_y(wavl)
-    Y = np.trapz(x=wavl, y=ybar * spd)
+    Y = np.trapezoid(x=wavl, y=ybar * spd)
 
     spd = spd / Y
 
@@ -357,7 +357,7 @@ def XYZcie1931_from_spd(
     xyz = color_matching_xyz(wavelength, axis=0)
     integrand = spd * xyz
 
-    result = np.trapz(
+    result = np.trapezoid(
         x=wavelength,
         y=integrand,
         axis=axis,
