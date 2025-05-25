@@ -803,7 +803,10 @@ def rgb(
     )
 
     RGB = RGB.to_value(u.dimensionless_unscaled)
-    RGB = np.clip(RGB, 0, 1)
+
+    RGB = np.tanh(RGB)
+
+    RGB = np.clip(RGB, 0, None)
 
     return RGB
 
