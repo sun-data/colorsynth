@@ -804,7 +804,12 @@ def rgb(
 
     RGB = RGB.to_value(u.dimensionless_unscaled)
 
-    RGB = np.tanh(RGB)
+    max_rgb = RGB.max(axis, keepdims=True)
+    RGB = np.where(
+        max_rgb > 1,
+        RGB / max_rgb,
+        RGB,
+    )
 
     RGB = np.clip(RGB, 0, None)
 
