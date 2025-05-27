@@ -805,11 +805,10 @@ def rgb(
     RGB = RGB.to_value(u.dimensionless_unscaled)
 
     max_rgb = RGB.max(axis, keepdims=True)
-    RGB = np.where(
-        max_rgb > 1,
-        RGB / max_rgb,
-        RGB,
-    )
+
+    max_rgb = np.maximum(max_rgb, 1)
+
+    RGB = RGB / max_rgb
 
     RGB = np.clip(RGB, 0, None)
 
