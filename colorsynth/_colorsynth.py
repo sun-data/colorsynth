@@ -803,7 +803,14 @@ def rgb(
     )
 
     RGB = RGB.to_value(u.dimensionless_unscaled)
-    RGB = np.clip(RGB, 0, 1)
+
+    max_rgb = RGB.max(axis, keepdims=True)
+
+    max_rgb = np.maximum(max_rgb, 1)
+
+    RGB = RGB / max_rgb
+
+    RGB = np.clip(RGB, 0, None)
 
     return RGB
 
