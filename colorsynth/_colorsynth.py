@@ -1076,6 +1076,7 @@ def colorbar(
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
     wavelength_norm: None | Callable[[u.Quantity], u.Quantity] = None,
+    num_intensity: int = 101,
     squeeze: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -1120,6 +1121,8 @@ def colorbar(
     wavelength_norm
         an optional function to transform the wavelength values before they
         are mapped into the human visible color range.
+    num_intensity
+        the number of intensity samples in the colorbar.
     squeeze
         A boolean flag indicating whether to remove singleton dimensions
         from the result.
@@ -1217,7 +1220,7 @@ def colorbar(
     intensity = np.linspace(
         start=0,
         stop=spd_max_ - spd_min_,
-        num=101,
+        num=num_intensity,
     )
 
     intensity = intensity[np.newaxis, :]
@@ -1231,8 +1234,13 @@ def colorbar(
         wavelength2.shape,
     )
 
+    shape_index = [1] * max(wavelength.ndim, -axis_)
+    shape_index[axis_] = shape[axis_]
+    index = np.arange(shape[axis_]).reshape(shape_index)
+    index2 = np.swapaxes(index[np.newaxis, np.newaxis], 0, axis_)
+
     cbar = np.zeros(shape_cbar)
-    cbar[np.broadcast_to(wavelength == wavelength2, shape_cbar)] = 1
+    cbar[np.broadcast_to(index == index2, shape_cbar)] = 1
     cbar = cbar * intensity + spd_min_
 
     spd_, wavelength_ = transform_spd_wavelength(cbar, wavelength)
