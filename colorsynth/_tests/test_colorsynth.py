@@ -284,7 +284,7 @@ def test_XYZ_normalized_axis_max(
 
 
 def test_XYZ_normalized_axis_max_invalid():
-    XYZ = rng.uniform(size=(64, 64, 3))
+    XYZ = np.random.default_rng(0).uniform(size=(64, 64, 3))
     with pytest.raises(ValueError):
         colorsynth.XYZ_normalized(XYZ, axis=-1, axis_max=(0, -1))
 
@@ -359,7 +359,7 @@ def test_colorbar(
 
 
 def test_colorbar_num_intensity():
-    spd = rng.uniform(size=(64, 64, 51))
+    spd = np.random.default_rng(0).uniform(size=(64, 64, 51))
     wavelength = np.linspace(380, 780, num=51) * u.nm
     intensity, wavelength2, RGB = colorsynth.colorbar(
         spd=spd,
@@ -372,12 +372,63 @@ def test_colorbar_num_intensity():
 
 
 def test_colorbar_duplicate_wavelength():
-    spd = rng.uniform(size=(4,))
+    """
+    A repeated wavelength must give the same colorbar as a wavelength grid
+    where the repeat has been perturbed by a negligible amount.
+    """
+    spd = np.array([0.1, 0.5, 0.5, 0.9])
     wavelength = [400, 500, 500, 600] * u.nm
     wavelength_eps = [400, 500, 500.001, 600] * u.nm
-    result = colorsynth.colorbar(spd=spd, wavelength=wavelength)
-    result_eps = colorsynth.colorbar(spd=spd, wavelength=wavelength_eps)
-    assert np.allclose(result[2], result_eps[2], atol=1e-3)
+    result = colorsynth.colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        spd_min=0.0,
+        spd_max=1.0,
+    )
+    result_eps = colorsynth.colorbar(
+        spd=spd,
+        wavelength=wavelength_eps,
+        spd_min=0.0,
+        spd_max=1.0,
+    )
+    assert np.all(np.isfinite(result[2]))
+    assert np.allclose(result[2], result_eps[2], atol=1e-4)
+
+
+@pytest.mark.parametrize(
+    argnames="spd,wavelength,axis",
+    argvalues=[
+        (rng.uniform(size=(101,)), np.linspace(380, 780, num=101) * u.nm, -1),
+        (rng.uniform(size=(16, 17, 101)), np.linspace(380, 780, num=101) * u.nm, -1),
+        (
+            rng.uniform(size=(101, 16, 17)),
+            np.linspace(380, 780, num=101)[:, np.newaxis, np.newaxis] * u.nm,
+            0,
+        ),
+        (rng.uniform(size=(16, 17, 101)) * u.photon, None, -1),
+    ],
+)
+def test_rgb_and_colorbar_equivalence(
+    spd: np.ndarray,
+    wavelength: None | u.Quantity,
+    axis: int,
+):
+    """
+    Sharing the normalization bounds must not change the result of calling
+    :func:`colorsynth.rgb` and :func:`colorsynth.colorbar` independently.
+    """
+    RGB, cbar = colorsynth.rgb_and_colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+    )
+
+    RGB_expected = colorsynth.rgb(spd=spd, wavelength=wavelength, axis=axis)
+    cbar_expected = colorsynth.colorbar(spd=spd, wavelength=wavelength, axis=axis)
+
+    assert np.array_equal(RGB, RGB_expected, equal_nan=True)
+    for r, e in zip(cbar, cbar_expected):
+        assert np.array_equal(r, e, equal_nan=True)
 
 
 @pytest.mark.parametrize(
