@@ -1,8 +1,16 @@
 Introduction
 ============
 
-Colorsynth is a package designed to collapse one dimension of a :class:`numpy.ndarray`
-into red, green, and blue (:math:`RGB`) channels that can be displayed on your computer monitor.
+:mod:`colorsynth` is a Python library for creating false-color images from
+spectral cubes: arrays with two spatial axes and one spectral axis, such as
+those measured by scanning-slit spectrographs.
+It collapses the spectral axis of a :class:`numpy.ndarray` into red, green,
+and blue (:math:`RGB`) channels that can be displayed on your computer
+monitor by mapping the spectrum into the human visible range and weighting
+it by the CIE 1931 color-matching functions.
+The shape of the spectrum controls the hue of each pixel, and the total
+intensity controls its brightness, so features like Doppler shifts are
+visible directly in the image.
 
 Installation
 ============
@@ -11,18 +19,56 @@ Installation
 
     pip install colorsynth
 
-API Reference
-=============
+A simple example
+================
 
-.. autosummary::
-    :toctree: _autosummary
-    :template: module_custom.rst
-    :recursive:
+The main entry point of this library is :func:`colorsynth.rgb`, which
+converts a spectral cube into an RGB image.
 
-    colorsynth
+The cube below contains a Gaussian emission line at every point, with a
+center wavelength that increases from left to right, and a total intensity
+that increases from top to bottom.
+In the resulting false-color image, the center wavelength of the line
+appears as hue, and its total intensity appears as brightness.
 
-Examples
-========
+.. jupyter-execute::
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import astropy.units as u
+    import colorsynth
+
+    # Define a wavelength grid for the spectral axis
+    wavelength = np.linspace(400, 700, num=61) * u.nm
+
+    # Define a spatial grid
+    x = np.linspace(0, 1, num=101)[:, np.newaxis, np.newaxis]
+    y = np.linspace(0, 1, num=101)[np.newaxis, :, np.newaxis]
+
+    # Define a spectral cube containing a Gaussian emission line
+    # at every point, with a center wavelength that increases from
+    # left to right, and a total intensity that increases from top
+    # to bottom
+    center = 420 * u.nm + (680 - 420) * u.nm * y
+    width = 15 * u.nm
+    spd = x * np.exp(-np.square((wavelength - center) / width))
+
+    # Collapse the wavelength axis of the cube into RGB channels
+    rgb = colorsynth.rgb(spd, wavelength, axis=~0, spd_min=0, spd_max=1)
+
+    # Display the result as a false-color image
+    fig, ax = plt.subplots(constrained_layout=True)
+    ax.imshow(rgb);
+
+The ``spd_min`` and ``spd_max`` arguments fix the range of the intensity
+normalization for the whole cube.
+If they are omitted, every wavelength bin is normalized independently by its
+own minimum and maximum over the spatial axes, which is often useful for
+real data with a bright continuum, but would exaggerate the faint wings of
+the emission line in this synthetic example.
+
+Colorizing IRIS spectroheliograms
+=================================
 
 The `Interface Region Imaging Spectrograph <iris.lmsal.com>`_ (IRIS), is a NASA
 Small Explorer satellite that has been observing the Sun in ultraviolet since 2013.
@@ -136,6 +182,16 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
         axs[1].yaxis.set_label_position("right")
         axs[1].set_ylim(velocity_min, velocity_max)
 |
+
+API Reference
+=============
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module_custom.rst
+    :recursive:
+
+    colorsynth
 
 Bibliography
 ============
