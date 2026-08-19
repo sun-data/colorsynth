@@ -1115,11 +1115,20 @@ def colorbar(
 
     _validate_spd_wavelength(spd, wavelength, axis)
 
+    wavelength = np.asanyarray(wavelength)
+
     shape = np.broadcast_shapes(spd.shape, wavelength.shape)
     ndim = len(shape)
     axis_ = ~range(ndim)[~axis]
 
     shape_singleton = (1,) * ndim
+
+    # Give `wavelength` the same number of dimensions as the broadcast shape
+    # so that the new intensity and wavelength axes of the colorbar line up
+    # with the axes of `spd`.
+    wavelength = wavelength.reshape(
+        (1,) * (ndim - wavelength.ndim) + wavelength.shape,
+    )
 
     spd_min, spd_max = _bounds_normalize(
         a=spd,
