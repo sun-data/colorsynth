@@ -397,7 +397,8 @@ def _XYZ_from_spd_weighted(
     """
     num, num_wavelength = spd.shape
     result = np.empty((num, 3), dtype=spd.dtype)
-    for i in numba.prange(num):
+    # `numba.prange` is iterable when compiled, but is not declared as such.
+    for i in numba.prange(num):  # type: ignore[attr-defined]
         X = 0.0
         Y = 0.0
         Z = 0.0
