@@ -7,8 +7,8 @@ on:
   pull_request:
 
 jobs:
-  mypy:
-    name: Check type annotations with mypy
+  pyright:
+    name: Check type annotations with pyright
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .[test]
-          pip install "mypy~=2.3"
-      - name: Check types with mypy
-        run: mypy
+      - name: Check types with pyright
+        uses: jakebailey/pyright-action@v2
+        with:
+          version: 1.1.411
