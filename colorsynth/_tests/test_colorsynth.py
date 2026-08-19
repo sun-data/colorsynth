@@ -339,6 +339,28 @@ def test_colorbar(
         assert isinstance(arr, np.ndarray)
 
 
+def test_colorbar_num_intensity():
+    spd = rng.uniform(size=(64, 64, 51))
+    wavelength = np.linspace(380, 780, num=51) * u.nm
+    intensity, wavelength2, RGB = colorsynth.colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        num_intensity=11,
+    )
+    assert intensity.shape == (51, 11)
+    assert wavelength2.shape == (51, 11)
+    assert RGB.shape == (51, 11, 3)
+
+
+def test_colorbar_duplicate_wavelength():
+    spd = rng.uniform(size=(4,))
+    wavelength = [400, 500, 500, 600] * u.nm
+    wavelength_eps = [400, 500, 500.001, 600] * u.nm
+    result = colorsynth.colorbar(spd=spd, wavelength=wavelength)
+    result_eps = colorsynth.colorbar(spd=spd, wavelength=wavelength_eps)
+    assert np.allclose(result[2], result_eps[2], atol=1e-3)
+
+
 @pytest.mark.parametrize(
     argnames="spd",
     argvalues=[
