@@ -133,6 +133,11 @@ def test_XYZcie1931_from_spd(
             np.array([533]) * u.nm,
             -1,
         ),
+        (
+            np.random.randint(0, 100, size=(16, 17, 101)),
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
     ],
 )
 def test_XYZcie1931_from_spd_trapezoid_equivalence(
