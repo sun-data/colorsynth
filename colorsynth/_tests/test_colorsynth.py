@@ -75,6 +75,25 @@ def test_color_matching_xyz_outside_tabulated_range():
     assert np.all(result == 0)
 
 
+def test_XYZcie1931_from_spd_equal_energy():
+    """
+    A flat, equal-energy spectrum is CIE standard illuminant E, which sits
+    at the center of the chromaticity diagram, :math:`x = y = 1/3`.
+
+    Since the CIE 1931 color matching functions are normalized to have
+    equal integrals, the tristimulus values are also equal to each other,
+    and to the standard value of about 106.857.
+    """
+    wavelength = np.linspace(360, 830, num=471) * u.nm
+    spd = np.ones(wavelength.shape) / u.nm
+
+    XYZ = colorsynth.XYZcie1931_from_spd(spd, wavelength)
+    xyY = colorsynth.xyY_from_XYZ_cie(XYZ)
+
+    assert np.allclose(XYZ, 106.857, rtol=1e-3)
+    assert np.allclose(xyY[:2], 1 / 3, atol=1e-3)
+
+
 def test_d65_white_point():
     wavelength = np.linspace(360, 830, num=2001) * u.nm
     spd = colorsynth.d65_standard_illuminant(wavelength)
@@ -287,6 +306,51 @@ def test_XYZ_normalized_axis_max_invalid():
     XYZ = np.random.default_rng(0).uniform(size=(64, 64, 3))
     with pytest.raises(ValueError):
         colorsynth.XYZ_normalized(XYZ, axis=-1, axis_max=(0, -1))
+
+
+@pytest.mark.parametrize("XYZ", XYZ)
+@pytest.mark.parametrize("axis", [-1])
+def test_xyY_from_XYZ_cie_roundtrip(
+    XYZ: np.ndarray,
+    axis: int,
+):
+    """Converting to the xyY color space and back must be the identity."""
+    xyY = colorsynth.xyY_from_XYZ_cie(XYZ, axis=axis)
+    result = colorsynth.XYZ_from_xyY_cie(xyY, axis=axis)
+    assert np.allclose(result, XYZ)
+
+
+def test_sRGB_white_point():
+    """
+    The sRGB color space is defined against the D65 white point,
+    so the tristimulus values of that white point must map to pure white.
+    """
+    XYZ = np.array([0.9505, 1.0000, 1.0890])
+    assert np.allclose(colorsynth.sRGB(XYZ), 1, atol=1e-3)
+
+
+@pytest.mark.parametrize(
+    argnames="wavelength,index_expected",
+    argvalues=[
+        (450 * u.nm, 2),
+        (550 * u.nm, 1),
+        (610 * u.nm, 0),
+    ],
+)
+def test_sRGB_monochromatic(
+    wavelength: u.Quantity,
+    index_expected: int,
+):
+    """
+    A monochromatic source must be dominated by the color channel that a
+    human observer associates with its wavelength.
+
+    This checks the color space conversions directly, rather than through
+    :func:`colorsynth.rgb`, which remaps its input onto the visible range.
+    """
+    XYZ = colorsynth.color_matching_xyz(wavelength)
+    result = colorsynth.sRGB(XYZ)
+    assert np.argmax(result) == index_expected
 
 
 @pytest.mark.parametrize("XYZ", XYZ)
