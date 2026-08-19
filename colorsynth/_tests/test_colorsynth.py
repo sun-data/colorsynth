@@ -358,17 +358,52 @@ def test_colorbar(
         assert isinstance(arr, np.ndarray)
 
 
-def test_colorbar_num_intensity():
-    spd = np.random.default_rng(0).uniform(size=(64, 64, 51))
-    wavelength = np.linspace(380, 780, num=51) * u.nm
+@pytest.mark.parametrize(
+    argnames="shape_spd,axis",
+    argvalues=[
+        ((51,), -1),
+        ((8, 51), -1),
+        ((8, 9, 51), -1),
+        ((8, 9, 10, 51), -1),
+        ((51, 8), 0),
+        ((51, 8, 9), 0),
+    ],
+)
+@pytest.mark.parametrize(argnames="num_intensity", argvalues=[11, 101])
+def test_colorbar_shape(
+    shape_spd: tuple[int, ...],
+    axis: int,
+    num_intensity: int,
+):
+    """
+    The colorbar must have a consistent shape for any number of dimensions
+    of `spd`, with intensity along the first axis and wavelength along the
+    second axis by default.
+    """
+    num_wavelength = shape_spd[axis]
+    spd = np.random.default_rng(0).uniform(size=shape_spd)
+    wavelength = np.linspace(380, 780, num=num_wavelength) * u.nm
+    shape_wavelength = [1] * len(shape_spd)
+    shape_wavelength[axis] = num_wavelength
+    wavelength = wavelength.reshape(shape_wavelength)
+
     intensity, wavelength2, RGB = colorsynth.colorbar(
         spd=spd,
         wavelength=wavelength,
-        num_intensity=11,
+        axis=axis,
+        num_intensity=num_intensity,
     )
-    assert intensity.shape == (51, 11)
-    assert wavelength2.shape == (51, 11)
-    assert RGB.shape == (51, 11, 3)
+
+    shape_expected = (num_intensity, num_wavelength)
+    assert intensity.shape == shape_expected
+    assert wavelength2.shape == shape_expected
+    assert RGB.shape == shape_expected + (3,)
+
+    if spd.ndim > 1:
+        # If `spd` is one-dimensional there are no axes orthogonal to the
+        # wavelength axis, so the automatic normalization bounds are equal
+        # to each other and the normalization divides by zero.
+        assert np.all(np.isfinite(RGB))
 
 
 def test_colorbar_duplicate_wavelength():
