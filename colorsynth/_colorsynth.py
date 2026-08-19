@@ -1121,6 +1121,13 @@ def colorbar(
 
     shape_singleton = (1,) * ndim
 
+    spd_min, spd_max = _bounds_normalize(
+        a=spd,
+        axis=axis_,
+        vmin=spd_min,
+        vmax=spd_max,
+    )
+
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,
         wavelength=wavelength,
@@ -1133,21 +1140,14 @@ def colorbar(
         wavelength_norm=wavelength_norm,
     )
 
-    spd_min_, spd_max_ = _bounds_normalize(
-        a=spd,
-        axis=axis,
-        vmin=spd_min,
-        vmax=spd_max,
-    )
-
     spd_min_ = np.broadcast_to(
-        array=spd_min_,
-        shape=np.broadcast_shapes(np.shape(spd_min_), shape_singleton),
+        array=spd_min,
+        shape=np.broadcast_shapes(np.shape(spd_min), shape_singleton),
         subok=True,
     )
     spd_max_ = np.broadcast_to(
-        array=spd_max_,
-        shape=np.broadcast_shapes(np.shape(spd_max_), shape_singleton),
+        array=spd_max,
+        shape=np.broadcast_shapes(np.shape(spd_max), shape_singleton),
         subok=True,
     )
 
@@ -1250,7 +1250,29 @@ def rgb_and_colorbar(
         are mapped into the human visible color range.
     kwargs_colorbar
         Any additional keyword arguments needed by :func:`colorbar`.
+
+    Notes
+    -----
+    Any normalization bounds which have not been specified are computed
+    once here and shared by :func:`rgb` and :func:`colorbar`,
+    instead of being computed independently by each of them.
     """
+
+    shape = np.broadcast_shapes(np.shape(spd), np.shape(wavelength))
+    axis_ = ~range(len(shape))[~axis]
+
+    spd_min, spd_max = _bounds_normalize(
+        a=spd,
+        axis=axis_,
+        vmin=spd_min,
+        vmax=spd_max,
+    )
+
+    if wavelength is not None:
+        if wavelength_min is None:
+            wavelength_min = np.nanmin(wavelength)
+        if wavelength_max is None:
+            wavelength_max = np.nanmax(wavelength)
 
     kwargs = dict(
         spd=spd,
