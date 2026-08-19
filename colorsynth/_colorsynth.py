@@ -327,6 +327,146 @@ def color_matching_xyz(
     return result
 
 
+def _trapezoid_weights(x: np.ndarray) -> np.ndarray:
+    r"""
+    Quadrature weights :math:`w_i` such that :math:`\sum_i w_i y_i` is
+    equal to :func:`numpy.trapezoid` of :math:`y` over the grid :math:`x`.
+
+    Parameters
+    ----------
+    x
+        the grid of the integration variable.
+    """
+    result = np.zeros(x.shape)
+    if x.size >= 2:
+        d = np.diff(x)
+        result[0] = d[0] / 2
+        result[-1] = d[-1] / 2
+        result[1:-1] = (x[2:] - x[:-2]) / 2
+    return result
+
+
+def _wavelength_varies_only_along(
+    wavelength: np.ndarray,
+    axis: int,
+    ndim: int,
+) -> bool:
+    """
+    Check if `wavelength` can vary only along `axis` of the broadcast shape,
+    which is the case if every other dimension of `wavelength` either has
+    length one or is a stride-zero broadcast view.
+
+    Parameters
+    ----------
+    wavelength
+        the wavelength grid to inspect.
+    axis
+        the integration axis, relative to the broadcast shape.
+    ndim
+        the number of dimensions of the broadcast shape.
+    """
+    offset = ndim - wavelength.ndim
+    axis = axis % ndim
+    for i in range(wavelength.ndim):
+        if i + offset == axis:
+            continue
+        if wavelength.shape[i] != 1 and wavelength.strides[i] != 0:
+            return False
+    return True
+
+
+@numba.njit(parallel=True, cache=True)
+def _XYZ_from_spd_weighted(
+    spd: np.ndarray,
+    xyz: np.ndarray,
+) -> np.ndarray:  # pragma: nocover
+    """
+    Contract a 2D spectral power distribution with the color matching
+    functions premultiplied by quadrature weights.
+
+    Parameters
+    ----------
+    spd
+        the spectral power distribution with shape ``(num, num_wavelength)``.
+    xyz
+        the weighted color matching functions with shape ``(num_wavelength, 3)``.
+    """
+    num, num_wavelength = spd.shape
+    result = np.empty((num, 3), dtype=spd.dtype)
+    for i in numba.prange(num):
+        X = 0.0
+        Y = 0.0
+        Z = 0.0
+        for j in range(num_wavelength):
+            s = spd[i, j]
+            X += s * xyz[j, 0]
+            Y += s * xyz[j, 1]
+            Z += s * xyz[j, 2]
+        result[i, 0] = X
+        result[i, 1] = Y
+        result[i, 2] = Z
+    return result
+
+
+def _XYZcie1931_from_spd_1d(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int,
+    shape: tuple[int, ...],
+) -> np.ndarray:
+    """
+    Fast path of :func:`XYZcie1931_from_spd` for the case where the
+    wavelength grid varies only along the integration axis.
+
+    Evaluates the color matching functions on the 1D wavelength grid,
+    folds the trapezoidal quadrature weights into them, and contracts the
+    result with the spectral power distribution using a compiled kernel,
+    so that no array larger than `spd` is ever allocated.
+
+    Parameters
+    ----------
+    spd
+        the spectral power distribution of an emitting source as a function of wavelength
+    wavelength
+        the wavelength grid corresponding to the spectral power distribution.
+    axis
+        the integration axis, normalized to be negative.
+    shape
+        the shape of `spd` and `wavelength` broadcast against each other.
+    """
+    spd = np.broadcast_to(spd, shape, subok=True)
+
+    index: list[int | slice] = [0] * len(shape)
+    index[axis] = slice(None)
+    wavelength = np.broadcast_to(wavelength, shape, subok=True)[tuple(index)]
+
+    unit = None
+    if isinstance(spd, u.Quantity):
+        unit = spd.unit
+        spd = spd.value
+    if isinstance(wavelength, u.Quantity):
+        unit = wavelength.unit if unit is None else unit * wavelength.unit
+
+    xyz = color_matching_xyz(wavelength, axis=~0)
+
+    wavelength_value = (
+        wavelength.value if isinstance(wavelength, u.Quantity) else wavelength
+    )
+    xyz = xyz * _trapezoid_weights(wavelength_value)[..., np.newaxis]
+
+    if not np.issubdtype(spd.dtype, np.floating):
+        spd = spd.astype(float)
+
+    spd = np.moveaxis(spd, axis, ~0)
+    result = _XYZ_from_spd_weighted(spd.reshape(-1, spd.shape[~0]), xyz)
+    result = result.reshape(spd.shape[:~0] + (3,))
+    result = np.moveaxis(result, ~0, axis)
+
+    if unit is not None:
+        result = result << unit
+    return result
+
+
 def XYZcie1931_from_spd(
     spd: np.ndarray,
     wavelength: u.Quantity,
@@ -345,14 +485,31 @@ def XYZcie1931_from_spd(
         Must be sorted to yield positive :math:`XYZ` values
     axis
         the wavelength axis, or the axis along which to integrate
+
+    Notes
+    -----
+    If `wavelength` varies only along `axis`, which is the ordinary case,
+    this function evaluates the color matching functions on the 1D
+    wavelength grid and computes the integral as a weighted contraction,
+    which never allocates an array larger than `spd`.
+    Otherwise, it falls back to broadcasting `wavelength` against `spd`,
+    which allocates several arrays three times larger than `spd`.
     """
+    spd = np.asanyarray(spd)
+    wavelength = np.asanyarray(wavelength)
+
+    shape = np.broadcast_shapes(spd.shape, wavelength.shape)
+
+    axis = ~(~axis % len(shape))
+
+    if _wavelength_varies_only_along(wavelength, axis, len(shape)):
+        return _XYZcie1931_from_spd_1d(spd, wavelength, axis, shape)
+
     spd, wavelength = np.broadcast_arrays(
         spd,
         wavelength,
         subok=True,
     )
-
-    axis = ~(~axis % spd.ndim)
 
     xyz = color_matching_xyz(wavelength, axis=0)
     integrand = spd * xyz
@@ -630,7 +787,7 @@ def _transform_normalize(
         vmax_normalized = norm(vmax)
         x_normalized = norm(x)
         x = (x_normalized - vmin_normalized) / (vmax_normalized - vmin_normalized)
-        x = np.nan_to_num(x)
+        x = np.nan_to_num(x, copy=False)
         return x
 
     return result
@@ -774,8 +931,6 @@ def rgb(
         shape_wavelength[axis] = -1
         wavelength = np.linspace(0, 1, num=spd.shape[axis])
         wavelength = wavelength.reshape(shape_wavelength)
-
-    spd, wavelength = np.broadcast_arrays(spd, wavelength, subok=True)
 
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,

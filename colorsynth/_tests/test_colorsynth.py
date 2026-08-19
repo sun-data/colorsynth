@@ -91,6 +91,79 @@ def test_XYZcie1931_from_spd(
     assert result.shape[axis] == 3
 
 
+@pytest.mark.parametrize(
+    argnames="spd,wavelength,axis",
+    argvalues=[
+        (
+            np.random.uniform(size=(16, 17, 101)),
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+        (
+            np.random.uniform(size=(101, 16, 17)),
+            np.linspace(380, 780, num=101)[:, np.newaxis, np.newaxis] * u.nm,
+            0,
+        ),
+        (
+            np.random.uniform(size=(16, 17, 101)) * u.photon,
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+        (
+            np.random.uniform(size=(16, 17, 101)),
+            np.geomspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+        (
+            *np.broadcast_arrays(
+                np.random.uniform(size=(16, 17, 101)),
+                np.linspace(380, 780, num=101) * u.nm,
+                subok=True,
+            ),
+            -1,
+        ),
+        (
+            np.random.uniform(size=(16, 17, 101)),
+            np.linspace(380, 780, num=101) * u.nm
+            + np.linspace(0, 10, num=16)[:, np.newaxis, np.newaxis] * u.nm,
+            -1,
+        ),
+        (
+            np.random.uniform(size=(16, 17, 1)),
+            np.array([533]) * u.nm,
+            -1,
+        ),
+        (
+            np.random.randint(0, 100, size=(16, 17, 101)),
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+    ],
+)
+def test_XYZcie1931_from_spd_trapezoid_equivalence(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int,
+):
+    result = colorsynth.XYZcie1931_from_spd(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+    )
+
+    spd_, wavelength_ = np.broadcast_arrays(spd, wavelength, subok=True)
+    axis_ = ~(~axis % spd_.ndim)
+    xyz = colorsynth.color_matching_xyz(wavelength_, axis=0)
+    expected = np.trapezoid(x=wavelength_, y=spd_ * xyz, axis=axis_)
+    expected = np.moveaxis(expected, 0, axis_)
+
+    assert result.shape == expected.shape
+    assert np.allclose(result, expected)
+    if isinstance(expected, u.Quantity):
+        assert isinstance(result, u.Quantity)
+        assert result.unit.is_equivalent(expected.unit)
+
+
 @pytest.mark.parametrize("XYZ", XYZ)
 @pytest.mark.parametrize("axis", [-1])
 def test_xyY_from_XYZ_cie(
