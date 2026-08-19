@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, cast
 import pathlib
 import functools
 import numpy as np
@@ -95,7 +95,10 @@ def d65_standard_illuminant(
         left=0,
         right=0,
     )
-    return result
+
+    # `numpy.interp` is declared to return a plain array, but it preserves
+    # the unit of `fp`, which is the reciprocal of the wavelength unit.
+    return cast(u.Quantity, result)
 
 
 @functools.cache
@@ -114,7 +117,7 @@ def _color_matching_xyz_tabulated() -> tuple[u.Quantity, np.ndarray]:
     return wavl, np.stack([x, y, z], axis=~0)
 
 
-def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_x(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)` color matching function.
 
@@ -152,7 +155,7 @@ def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
     return np.interp(wavelength, wavl, xyz[..., 0], left=0, right=0)
 
 
-def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_y(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{y}(\lambda)` color matching function.
 
@@ -190,7 +193,7 @@ def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
     return np.interp(wavelength, wavl, xyz[..., 1], left=0, right=0)
 
 
-def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_z(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{z}(\lambda)` color matching function.
 
@@ -231,7 +234,7 @@ def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
 def color_matching_xyz(
     wavelength: u.Quantity,
     axis: int = -1,
-) -> u.Quantity:
+) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)`, :math:`\overline{y}(\lambda)`,
     and :math:`\overline{z}(\lambda)` color matching functions.
@@ -781,9 +784,9 @@ def _bounds_normalize(
     vmax: None | np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
 
-    axis_orthogonal = list(range(a.ndim))
-    axis_orthogonal.pop(axis)
-    axis_orthogonal = tuple(axis_orthogonal)
+    axes = list(range(a.ndim))
+    axes.pop(axis)
+    axis_orthogonal = tuple(axes)
 
     if vmin is None:
         vmin = np.nanmin(a, axis=axis_orthogonal, keepdims=True)
@@ -958,7 +961,7 @@ def rgb(
     if wavelength is None:
         shape_wavelength = [1] * spd.ndim
         shape_wavelength[axis] = -1
-        wavelength = np.linspace(0, 1, num=spd.shape[axis])
+        wavelength = u.Quantity(np.linspace(0, 1, num=spd.shape[axis]))
         wavelength = wavelength.reshape(shape_wavelength)
 
     _validate_spd_wavelength(spd, wavelength, axis)
@@ -988,7 +991,8 @@ def rgb(
         axis=axis,
     )
 
-    RGB = RGB.to_value(u.dimensionless_unscaled)
+    if isinstance(RGB, u.Quantity):
+        RGB = RGB.to_value(u.dimensionless_unscaled)
 
     max_rgb = RGB.max(axis, keepdims=True)
 
@@ -1110,7 +1114,7 @@ def colorbar(
     if wavelength is None:
         shape_wavelength = [1] * spd.ndim
         shape_wavelength[axis] = -1
-        wavelength = np.linspace(0, 1, num=spd.shape[axis])
+        wavelength = u.Quantity(np.linspace(0, 1, num=spd.shape[axis]))
         wavelength = wavelength.reshape(shape_wavelength)
 
     _validate_spd_wavelength(spd, wavelength, axis)
@@ -1194,7 +1198,8 @@ def colorbar(
     XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=axis_)
     RGB = sRGB(XYZ, axis=axis_)
 
-    RGB = RGB.to_value(u.dimensionless_unscaled)
+    if isinstance(RGB, u.Quantity):
+        RGB = RGB.to_value(u.dimensionless_unscaled)
 
     RGB = np.clip(RGB, 0, 1)
 
@@ -1283,7 +1288,7 @@ def rgb_and_colorbar(
         if wavelength_max is None:
             wavelength_max = np.nanmax(wavelength)
 
-    kwargs = dict(
+    RGB = rgb(
         spd=spd,
         wavelength=wavelength,
         axis=axis,
@@ -1294,8 +1299,17 @@ def rgb_and_colorbar(
         wavelength_max=wavelength_max,
         wavelength_norm=wavelength_norm,
     )
-
-    RGB = rgb(**kwargs)
-    cbar = colorbar(**kwargs, **kwargs_colorbar)
+    cbar = colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_min=spd_min,
+        spd_max=spd_max,
+        spd_norm=spd_norm,
+        wavelength_min=wavelength_min,
+        wavelength_max=wavelength_max,
+        wavelength_norm=wavelength_norm,
+        **kwargs_colorbar,
+    )
 
     return RGB, cbar

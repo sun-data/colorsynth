@@ -50,6 +50,17 @@ doc = [
 Homepage = "https://github.com/sun-data/colorsynth"
 Documentation = "https://colorsynth.readthedocs.io/en/latest"
 
+[tool.mypy]
+packages = ["colorsynth"]
+
+[[tool.mypy.overrides]]
+# Neither of these ship a `py.typed` marker, so their types cannot be checked.
+module = [
+    "astropy.*",
+    "numba.*",
+]
+ignore_missing_imports = true
+
 [tool.setuptools_scm]
 
 [tool.setuptools.package-data]
