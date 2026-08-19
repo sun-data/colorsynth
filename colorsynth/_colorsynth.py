@@ -1,5 +1,6 @@
 from typing import Callable
 import pathlib
+import functools
 import math
 import numpy as np
 import numba
@@ -26,6 +27,27 @@ __all__ = [
 
 wavelength_visible_min = 380 * u.nm
 wavelength_visible_max = 700 * u.nm
+
+
+@functools.cache
+def _d65_standard_illuminant_tabulated() -> tuple[u.Quantity, u.Quantity]:
+    """
+    Load the tabulated spectral power distribution of the CIE standard
+    illuminant D65 and normalize it to unit luminance.
+
+    The result is cached so that the data file is read and integrated
+    only once per session.
+    """
+    path = pathlib.Path(__file__).parent / "data/std65.txt"
+    wavl, spd = np.genfromtxt(path, skip_header=1, unpack=True)
+    wavl = wavl << u.nm
+
+    ybar = color_matching_y(wavl)
+    Y = np.trapezoid(x=wavl, y=ybar * spd)
+
+    spd = spd / Y
+
+    return wavl, spd
 
 
 def d65_standard_illuminant(
@@ -65,14 +87,7 @@ def d65_standard_illuminant(
             plt.plot(wavelength, d65)
     """
 
-    path = pathlib.Path(__file__).parent / "data/std65.txt"
-    wavl, spd = np.genfromtxt(path, skip_header=1, unpack=True)
-    wavl = wavl << u.nm
-
-    ybar = color_matching_y(wavl)
-    Y = np.trapezoid(x=wavl, y=ybar * spd)
-
-    spd = spd / Y
+    wavl, spd = _d65_standard_illuminant_tabulated()
 
     result = np.interp(
         x=wavelength,
@@ -346,6 +361,55 @@ def _trapezoid_weights(x: np.ndarray) -> np.ndarray:
     return result
 
 
+def _validate_spd_wavelength(
+    spd: np.ndarray,
+    wavelength: np.ndarray,
+    axis: int,
+) -> None:
+    """
+    Check that `spd` and `wavelength` are broadcastable against each other
+    and that `wavelength` varies along `axis` of the broadcast shape,
+    raising an informative :class:`ValueError` otherwise.
+
+    Parameters
+    ----------
+    spd
+        the spectral power distribution of an emitting source as a function of wavelength
+    wavelength
+        the wavelength grid corresponding to the spectral power distribution.
+    axis
+        the wavelength axis, or the axis along which to integrate
+    """
+    spd = np.asanyarray(spd)
+    wavelength = np.asanyarray(wavelength)
+
+    ndim = max(spd.ndim, wavelength.ndim)
+    if not -ndim <= axis < ndim:
+        raise ValueError(
+            f"{axis=} is out of bounds for arrays with {ndim} dimension(s)."
+        )
+
+    try:
+        shape = np.broadcast_shapes(spd.shape, wavelength.shape)
+    except ValueError as e:
+        raise ValueError(
+            f"spd and wavelength are not broadcastable against each other, "
+            f"{spd.shape=}, {wavelength.shape=}."
+        ) from e
+
+    axis_ = axis % len(shape)
+    axis_wavelength = axis_ - (len(shape) - wavelength.ndim)
+    num_wavelength = wavelength.shape[axis_wavelength] if axis_wavelength >= 0 else 1
+
+    if num_wavelength != shape[axis_]:
+        raise ValueError(
+            f"wavelength must vary along `axis`, but wavelength has length "
+            f"{num_wavelength} along {axis=} of the broadcast shape {shape}. "
+            f"Reshape wavelength so that its values lie along `axis`, "
+            f"for example using numpy.newaxis."
+        )
+
+
 def _wavelength_varies_only_along(
     wavelength: np.ndarray,
     axis: int,
@@ -497,6 +561,8 @@ def XYZcie1931_from_spd(
     """
     spd = np.asanyarray(spd)
     wavelength = np.asanyarray(wavelength)
+
+    _validate_spd_wavelength(spd, wavelength, axis)
 
     shape = np.broadcast_shapes(spd.shape, wavelength.shape)
 
@@ -891,7 +957,7 @@ def rgb(
         the value of the spectral power distribution representing minimum
         intensity.
     spd_max
-        the value of the spectral power distribution representing minimum
+        the value of the spectral power distribution representing maximum
         intensity.
     spd_norm
         an optional function to transform the spectral power distribution
@@ -931,6 +997,8 @@ def rgb(
         shape_wavelength[axis] = -1
         wavelength = np.linspace(0, 1, num=spd.shape[axis])
         wavelength = wavelength.reshape(shape_wavelength)
+
+    _validate_spd_wavelength(spd, wavelength, axis)
 
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,
@@ -1012,7 +1080,7 @@ def colorbar(
         the value of the spectral power distribution representing minimum
         intensity.
     spd_max
-        the value of the spectral power distribution representing minimum
+        the value of the spectral power distribution representing maximum
         intensity.
     spd_norm
         an optional function to transform the spectral power distribution
@@ -1078,6 +1146,8 @@ def colorbar(
         shape_wavelength[axis] = -1
         wavelength = np.linspace(0, 1, num=spd.shape[axis])
         wavelength = wavelength.reshape(shape_wavelength)
+
+    _validate_spd_wavelength(spd, wavelength, axis)
 
     shape = np.broadcast_shapes(spd.shape, wavelength.shape)
     ndim = len(shape)
@@ -1193,7 +1263,7 @@ def rgb_and_colorbar(
         the value of the spectral power distribution representing minimum
         intensity.
     spd_max
-        the value of the spectral power distribution representing minimum
+        the value of the spectral power distribution representing maximum
         intensity.
     spd_norm
         an optional function to transform the spectral power distribution
