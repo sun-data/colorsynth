@@ -4,6 +4,8 @@ import numpy as np
 import astropy.units as u
 import colorsynth
 
+rng = np.random.default_rng(42)
+
 wavelengths = [
     533 * u.nm,
     np.linspace(
@@ -14,8 +16,8 @@ wavelengths = [
 
 
 XYZ = [
-    np.random.uniform(size=(3,)),
-    np.random.uniform(size=(64, 64, 3)),
+    rng.uniform(size=(3,)),
+    rng.uniform(size=(64, 64, 3)),
 ]
 
 
@@ -63,19 +65,30 @@ def test_color_matching_xyz(
 
 
 @pytest.mark.parametrize(
-    argnames="spd",
+    argnames="spd,wavelength,axis",
     argvalues=[
-        np.random.uniform(size=(101,)),
-        np.random.uniform(size=(64, 64, 101)),
+        (
+            rng.uniform(size=(101,)),
+            np.linspace(380, 780, num=101) * u.nm,
+            0,
+        ),
+        (
+            rng.uniform(size=(101,)),
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+        (
+            rng.uniform(size=(64, 64, 101)),
+            np.linspace(380, 780, num=101) * u.nm,
+            -1,
+        ),
+        (
+            rng.uniform(size=(101, 64, 64)),
+            np.linspace(380, 780, num=101)[:, np.newaxis, np.newaxis] * u.nm,
+            0,
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    argnames="wavelength",
-    argvalues=[
-        np.linspace(380, 780, num=101) * u.nm,
-    ],
-)
-@pytest.mark.parametrize(argnames="axis", argvalues=[0, -1])
 def test_XYZcie1931_from_spd(
     spd: np.ndarray,
     wavelength: u.Quantity,
@@ -95,46 +108,46 @@ def test_XYZcie1931_from_spd(
     argnames="spd,wavelength,axis",
     argvalues=[
         (
-            np.random.uniform(size=(16, 17, 101)),
+            rng.uniform(size=(16, 17, 101)),
             np.linspace(380, 780, num=101) * u.nm,
             -1,
         ),
         (
-            np.random.uniform(size=(101, 16, 17)),
+            rng.uniform(size=(101, 16, 17)),
             np.linspace(380, 780, num=101)[:, np.newaxis, np.newaxis] * u.nm,
             0,
         ),
         (
-            np.random.uniform(size=(16, 17, 101)) * u.photon,
+            rng.uniform(size=(16, 17, 101)) * u.photon,
             np.linspace(380, 780, num=101) * u.nm,
             -1,
         ),
         (
-            np.random.uniform(size=(16, 17, 101)),
+            rng.uniform(size=(16, 17, 101)),
             np.geomspace(380, 780, num=101) * u.nm,
             -1,
         ),
         (
             *np.broadcast_arrays(
-                np.random.uniform(size=(16, 17, 101)),
+                rng.uniform(size=(16, 17, 101)),
                 np.linspace(380, 780, num=101) * u.nm,
                 subok=True,
             ),
             -1,
         ),
         (
-            np.random.uniform(size=(16, 17, 101)),
+            rng.uniform(size=(16, 17, 101)),
             np.linspace(380, 780, num=101) * u.nm
             + np.linspace(0, 10, num=16)[:, np.newaxis, np.newaxis] * u.nm,
             -1,
         ),
         (
-            np.random.uniform(size=(16, 17, 1)),
+            rng.uniform(size=(16, 17, 1)),
             np.array([533]) * u.nm,
             -1,
         ),
         (
-            np.random.randint(0, 100, size=(16, 17, 101)),
+            rng.integers(0, 100, size=(16, 17, 101)),
             np.linspace(380, 780, num=101) * u.nm,
             -1,
         ),
@@ -162,6 +175,39 @@ def test_XYZcie1931_from_spd_trapezoid_equivalence(
     if isinstance(expected, u.Quantity):
         assert isinstance(result, u.Quantity)
         assert result.unit.is_equivalent(expected.unit)
+
+
+@pytest.mark.parametrize(
+    argnames="spd,wavelength,axis",
+    argvalues=[
+        (
+            rng.uniform(size=(16, 17, 101)),
+            np.linspace(380, 780, num=100) * u.nm,
+            -1,
+        ),
+        (
+            rng.uniform(size=(101, 16, 17)),
+            np.linspace(380, 780, num=17) * u.nm,
+            0,
+        ),
+        (
+            rng.uniform(size=(16, 17, 101)),
+            np.linspace(380, 780, num=101) * u.nm,
+            3,
+        ),
+    ],
+)
+def test_XYZcie1931_from_spd_invalid(
+    spd: np.ndarray,
+    wavelength: u.Quantity,
+    axis: int,
+):
+    with pytest.raises(ValueError):
+        colorsynth.XYZcie1931_from_spd(
+            spd=spd,
+            wavelength=wavelength,
+            axis=axis,
+        )
 
 
 @pytest.mark.parametrize("XYZ", XYZ)
@@ -212,8 +258,8 @@ def test_sRGB(
 @pytest.mark.parametrize(
     argnames="spd",
     argvalues=[
-        np.random.uniform(size=(101,)),
-        np.random.uniform(size=(64, 64, 101)),
+        rng.uniform(size=(101,)),
+        rng.uniform(size=(64, 64, 101)),
     ],
 )
 @pytest.mark.parametrize(
@@ -240,8 +286,8 @@ def test_rgb(
 @pytest.mark.parametrize(
     argnames="spd",
     argvalues=[
-        np.random.uniform(size=(101,)),
-        np.random.uniform(size=(64, 64, 101)),
+        rng.uniform(size=(101,)),
+        rng.uniform(size=(64, 64, 101)),
     ],
 )
 @pytest.mark.parametrize(
@@ -270,8 +316,8 @@ def test_colorbar(
 @pytest.mark.parametrize(
     argnames="spd",
     argvalues=[
-        np.random.uniform(size=(101,)),
-        np.random.uniform(size=(64, 64, 101)),
+        rng.uniform(size=(101,)),
+        rng.uniform(size=(64, 64, 101)),
     ],
 )
 @pytest.mark.parametrize(
