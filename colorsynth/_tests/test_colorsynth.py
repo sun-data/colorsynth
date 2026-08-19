@@ -64,6 +64,25 @@ def test_color_matching_xyz(
     assert result.shape[axis] == 3
 
 
+def test_color_matching_y_peak():
+    result = colorsynth.color_matching_y(555 * u.nm)
+    assert np.allclose(result, 1)
+
+
+def test_color_matching_xyz_outside_tabulated_range():
+    wavelength = [200, 900] * u.nm
+    result = colorsynth.color_matching_xyz(wavelength)
+    assert np.all(result == 0)
+
+
+def test_d65_white_point():
+    wavelength = np.linspace(360, 830, num=2001) * u.nm
+    spd = colorsynth.d65_standard_illuminant(wavelength)
+    XYZ = colorsynth.XYZcie1931_from_spd(spd, wavelength)
+    xyY = colorsynth.xyY_from_XYZ_cie(XYZ)
+    assert np.allclose(xyY[:2], [0.31272, 0.32903], atol=1e-3)
+
+
 @pytest.mark.parametrize(
     argnames="spd,wavelength,axis",
     argvalues=[

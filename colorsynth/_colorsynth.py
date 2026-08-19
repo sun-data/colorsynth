@@ -1,7 +1,6 @@
 from typing import Callable
 import pathlib
 import functools
-import math
 import numpy as np
 import numba
 import astropy.units as u
@@ -99,51 +98,30 @@ def d65_standard_illuminant(
     return result
 
 
-def _piecewise_gaussian(
-    x: u.Quantity,
-    mean: u.Quantity,
-    stddev_1: u.Quantity,
-    stddev_2: u.Quantity,
-) -> np.ndarray:
+@functools.cache
+def _color_matching_xyz_tabulated() -> tuple[u.Quantity, np.ndarray]:
+    """
+    Load the CIE 1931 2-degree color matching functions,
+    tabulated at 1 nm resolution from 360 nm to 830 nm by the
+    `Colour & Vision Research Laboratory <http://www.cvrl.org>`_.
 
-    unit = x.unit
-    x = x.value
-    mean = mean.to_value(unit)
-    stddev_1 = stddev_1.to_value(unit)
-    stddev_2 = stddev_2.to_value(unit)
-
-    result = _piecewise_guassian_ufunc(x, mean, stddev_1, stddev_2)
-
-    return result
-
-
-@numba.vectorize(
-    [numba.float64(numba.float64, numba.float64, numba.float64, numba.float64)],
-    target="parallel",
-)
-def _piecewise_guassian_ufunc(
-    x: float,
-    mean: float,
-    stddev_1: float,
-    stddev_2: float,
-) -> float:  # pragma: nocover
-
-    if x < mean:
-        stddev = stddev_1
-    else:
-        stddev = stddev_2
-
-    a = (x - mean) / stddev
-
-    return math.exp(-a * a / 2)
+    The result is cached so that the data file is read only once
+    per session.
+    """
+    path = pathlib.Path(__file__).parent / "data/ciexyz31_1.csv"
+    wavl, x, y, z = np.genfromtxt(path, delimiter=",", unpack=True)
+    wavl = wavl << u.nm
+    return wavl, np.stack([x, y, z], axis=~0)
 
 
 def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)` color matching function.
 
-    Calculated using the piecewise Gaussian fit method described in
-    :cite:t:`Wyman2013`
+    Linearly interpolated from the standard values :cite:p:`CIE2004`,
+    tabulated at 1 nm resolution by the
+    `Colour & Vision Research Laboratory <http://www.cvrl.org>`_,
+    and zero outside the tabulated range of 360-830 nm.
 
     Parameters
     ----------
@@ -170,35 +148,18 @@ def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
             plt.figure()
             plt.plot(wavelength, xbar)
     """
-    g = _piecewise_gaussian
-    term_1 = 1.056 * g(
-        x=wavelength,
-        mean=599.8 * u.nm,
-        stddev_1=37.9 * u.nm,
-        stddev_2=31.0 * u.nm,
-    )
-    term_2 = 0.362 * g(
-        x=wavelength,
-        mean=442.0 * u.nm,
-        stddev_1=16.0 * u.nm,
-        stddev_2=26.7 * u.nm,
-    )
-    term_3 = -0.065 * g(
-        x=wavelength,
-        mean=501.1 * u.nm,
-        stddev_1=20.4 * u.nm,
-        stddev_2=26.2 * u.nm,
-    )
-    result = term_1 + term_2 + term_3
-    return result
+    wavl, xyz = _color_matching_xyz_tabulated()
+    return np.interp(wavelength, wavl, xyz[..., 0], left=0, right=0)
 
 
 def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
     r"""
     The CIE 1931 :math:`\overline{y}(\lambda)` color matching function.
 
-    Calculated using the piecewise Gaussian fit method described in
-    :cite:t:`Wyman2013`
+    Linearly interpolated from the standard values :cite:p:`CIE2004`,
+    tabulated at 1 nm resolution by the
+    `Colour & Vision Research Laboratory <http://www.cvrl.org>`_,
+    and zero outside the tabulated range of 360-830 nm.
 
     Parameters
     ----------
@@ -225,29 +186,18 @@ def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
             plt.figure()
             plt.plot(wavelength, ybar)
     """
-    g = _piecewise_gaussian
-    term_1 = 0.821 * g(
-        x=wavelength,
-        mean=568.8 * u.nm,
-        stddev_1=46.9 * u.nm,
-        stddev_2=40.5 * u.nm,
-    )
-    term_2 = 0.286 * g(
-        x=wavelength,
-        mean=530.9 * u.nm,
-        stddev_1=16.3 * u.nm,
-        stddev_2=31.1 * u.nm,
-    )
-    result = term_1 + term_2
-    return result
+    wavl, xyz = _color_matching_xyz_tabulated()
+    return np.interp(wavelength, wavl, xyz[..., 1], left=0, right=0)
 
 
 def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
     r"""
     The CIE 1931 :math:`\overline{z}(\lambda)` color matching function.
 
-    Calculated using the piecewise Gaussian fit method described in
-    :cite:t:`Wyman2013`
+    Linearly interpolated from the standard values :cite:p:`CIE2004`,
+    tabulated at 1 nm resolution by the
+    `Colour & Vision Research Laboratory <http://www.cvrl.org>`_,
+    and zero outside the tabulated range of 360-830 nm.
 
     Parameters
     ----------
@@ -274,21 +224,8 @@ def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
             plt.figure()
             plt.plot(wavelength, zbar)
     """
-    g = _piecewise_gaussian
-    term_1 = 1.217 * g(
-        x=wavelength,
-        mean=437.0 * u.nm,
-        stddev_1=11.8 * u.nm,
-        stddev_2=36.0 * u.nm,
-    )
-    term_2 = 0.681 * g(
-        x=wavelength,
-        mean=459.0 * u.nm,
-        stddev_1=26.0 * u.nm,
-        stddev_2=13.8 * u.nm,
-    )
-    result = term_1 + term_2
-    return result
+    wavl, xyz = _color_matching_xyz_tabulated()
+    return np.interp(wavelength, wavl, xyz[..., 2], left=0, right=0)
 
 
 def color_matching_xyz(
