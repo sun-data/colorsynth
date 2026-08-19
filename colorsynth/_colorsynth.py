@@ -640,13 +640,14 @@ def XYZ_from_xyY_cie(
 def XYZ_normalized(
     XYZ: np.ndarray,
     axis: int = -1,
-):
+    axis_max: None | int | tuple[int, ...] = None,
+) -> np.ndarray:
     """
     Normalize the luminance of a vector in the CIE 1931 :math:`XYZ` color space.
 
     This function converts to the `xyY` color space,
-    scales :math:`Y` to 1,
-    and then converts back into the `XYZ` color space
+    divides :math:`Y` by its maximum so that the largest luminance is one,
+    and then converts back into the `XYZ` color space.
 
     Parameters
     ----------
@@ -654,10 +655,35 @@ def XYZ_normalized(
         color values in a CIE 1931 :math:`XYZ` color space to be normalized
     axis
         the axis along which the color space values are distributed
+    axis_max
+        the axis or axes of `XYZ` along which to compute the maximum
+        luminance, ignoring NaN values.
+        If :obj:`None` (the default), the maximum is computed over the
+        entire array, so the result has a single global maximum luminance
+        of one.
+        For a stack of images, pass the axes of each image to normalize
+        every image in the stack independently.
+        May not contain `axis`.
     """
+    ndim = XYZ.ndim
+    axis_ = axis % ndim
+
+    if axis_max is None:
+        axis_max_ = None
+    else:
+        if isinstance(axis_max, int):
+            axis_max = (axis_max,)
+        axis_max_normalized = tuple(a % ndim for a in axis_max)
+        if axis_ in axis_max_normalized:
+            raise ValueError(
+                f"{axis_max=} may not contain the color-component axis, {axis=}."
+            )
+        axis_max_ = tuple(a - (a > axis_) for a in axis_max_normalized)
+
     xyY = xyY_from_XYZ_cie(XYZ, axis=axis)
     x, y, Y = np.moveaxis(xyY, source=axis, destination=0)
-    Y /= Y.max()
+    Y = Y / np.nanmax(Y, axis=axis_max_, keepdims=True)
+    xyY = np.stack([x, y, Y], axis=axis)
     return XYZ_from_xyY_cie(xyY, axis=axis)
 
 

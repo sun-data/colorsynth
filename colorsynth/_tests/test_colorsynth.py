@@ -241,7 +241,33 @@ def test_XYZ_normalized(
     result = colorsynth.XYZ_normalized(XYZ, axis=axis)
     assert isinstance(result, np.ndarray)
     assert result.shape[axis] == 3
-    assert np.take(result, 1, axis=axis).max() <= 1
+    assert np.allclose(np.take(result, 1, axis=axis).max(), 1)
+
+
+@pytest.mark.parametrize(
+    argnames="XYZ,axis,axis_max,axis_check",
+    argvalues=[
+        (rng.uniform(size=(5, 64, 64, 3)), -1, (1, 2), (1, 2)),
+        (rng.uniform(size=(5, 64, 64, 3)), -1, (-3, -2), (1, 2)),
+        (rng.uniform(size=(64, 64, 3)), -1, 0, 0),
+        (rng.uniform(size=(3, 5, 64, 64)), 0, (2, 3), (1, 2)),
+    ],
+)
+def test_XYZ_normalized_axis_max(
+    XYZ: np.ndarray,
+    axis: int,
+    axis_max: None | int | tuple[int, ...],
+    axis_check: int | tuple[int, ...],
+):
+    result = colorsynth.XYZ_normalized(XYZ, axis=axis, axis_max=axis_max)
+    Y = np.take(result, 1, axis=axis)
+    assert np.allclose(Y.max(axis=axis_check), 1)
+
+
+def test_XYZ_normalized_axis_max_invalid():
+    XYZ = rng.uniform(size=(64, 64, 3))
+    with pytest.raises(ValueError):
+        colorsynth.XYZ_normalized(XYZ, axis=-1, axis_max=(0, -1))
 
 
 @pytest.mark.parametrize("XYZ", XYZ)
