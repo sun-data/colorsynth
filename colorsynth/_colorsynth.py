@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, cast
 import pathlib
 import functools
 import numpy as np
@@ -24,8 +24,11 @@ __all__ = [
 ]
 
 
-wavelength_visible_min = 380 * u.nm
-wavelength_visible_max = 700 * u.nm
+wavelength_visible_min: u.Quantity = 380 * u.nm
+"""The shortest wavelength visible to a human observer."""
+
+wavelength_visible_max: u.Quantity = 700 * u.nm
+"""The longest wavelength visible to a human observer."""
 
 
 @functools.cache
@@ -95,7 +98,10 @@ def d65_standard_illuminant(
         left=0,
         right=0,
     )
-    return result
+
+    # `numpy.interp` is declared to return a plain array, but it preserves
+    # the unit of `fp`, which is the reciprocal of the wavelength unit.
+    return cast(u.Quantity, result)
 
 
 @functools.cache
@@ -114,7 +120,7 @@ def _color_matching_xyz_tabulated() -> tuple[u.Quantity, np.ndarray]:
     return wavl, np.stack([x, y, z], axis=~0)
 
 
-def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_x(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)` color matching function.
 
@@ -152,7 +158,7 @@ def color_matching_x(wavelength: u.Quantity) -> u.Quantity:
     return np.interp(wavelength, wavl, xyz[..., 0], left=0, right=0)
 
 
-def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_y(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{y}(\lambda)` color matching function.
 
@@ -190,7 +196,7 @@ def color_matching_y(wavelength: u.Quantity) -> u.Quantity:
     return np.interp(wavelength, wavl, xyz[..., 1], left=0, right=0)
 
 
-def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
+def color_matching_z(wavelength: u.Quantity) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{z}(\lambda)` color matching function.
 
@@ -231,7 +237,7 @@ def color_matching_z(wavelength: u.Quantity) -> u.Quantity:
 def color_matching_xyz(
     wavelength: u.Quantity,
     axis: int = -1,
-) -> u.Quantity:
+) -> np.ndarray:
     r"""
     The CIE 1931 :math:`\overline{x}(\lambda)`, :math:`\overline{y}(\lambda)`,
     and :math:`\overline{z}(\lambda)` color matching functions.
@@ -296,6 +302,33 @@ def _trapezoid_weights(x: np.ndarray) -> np.ndarray:
         result[-1] = d[-1] / 2
         result[1:-1] = (x[2:] - x[:-2]) / 2
     return result
+
+
+def _wavelength_normalized(
+    spd: np.ndarray,
+    wavelength: None | u.Quantity,
+    axis: int,
+) -> u.Quantity:
+    """
+    Return `wavelength` unchanged, or, if it is :obj:`None`, an evenly-spaced
+    grid spanning the interval from zero to one along `axis`.
+
+    Parameters
+    ----------
+    spd
+        the spectral power distribution of an emitting source as a function of wavelength
+    wavelength
+        the wavelength grid corresponding to the spectral power distribution.
+    axis
+        the wavelength axis, or the axis along which to integrate
+    """
+    if wavelength is not None:
+        return wavelength
+
+    shape = [1] * spd.ndim
+    shape[axis] = -1
+    result = u.Quantity(np.linspace(0, 1, num=spd.shape[axis]))
+    return cast(u.Quantity, result.reshape(shape))
 
 
 def _validate_spd_wavelength(
@@ -394,7 +427,8 @@ def _XYZ_from_spd_weighted(
     """
     num, num_wavelength = spd.shape
     result = np.empty((num, 3), dtype=spd.dtype)
-    for i in numba.prange(num):
+    # `numba.prange` is iterable when compiled, but is not declared as such.
+    for i in numba.prange(num):  # type: ignore[attr-defined]
         X = 0.0
         Y = 0.0
         Z = 0.0
@@ -439,19 +473,19 @@ def _XYZcie1931_from_spd_1d(
 
     index: list[int | slice] = [0] * len(shape)
     index[axis] = slice(None)
-    wavelength = np.broadcast_to(wavelength, shape, subok=True)[tuple(index)]
+    wavelength_1d = np.broadcast_to(wavelength, shape, subok=True)[tuple(index)]
 
     unit = None
     if isinstance(spd, u.Quantity):
         unit = spd.unit
         spd = spd.value
-    if isinstance(wavelength, u.Quantity):
-        unit = wavelength.unit if unit is None else unit * wavelength.unit
+    if isinstance(wavelength_1d, u.Quantity):
+        unit = wavelength_1d.unit if unit is None else unit * wavelength_1d.unit
 
-    xyz = color_matching_xyz(wavelength, axis=~0)
+    xyz = color_matching_xyz(cast(u.Quantity, wavelength_1d), axis=~0)
 
     wavelength_value = (
-        wavelength.value if isinstance(wavelength, u.Quantity) else wavelength
+        wavelength_1d.value if isinstance(wavelength_1d, u.Quantity) else wavelength_1d
     )
     xyz = xyz * _trapezoid_weights(wavelength_value)[..., np.newaxis]
 
@@ -508,17 +542,17 @@ def XYZcie1931_from_spd(
     if _wavelength_varies_only_along(wavelength, axis, len(shape)):
         return _XYZcie1931_from_spd_1d(spd, wavelength, axis, shape)
 
-    spd, wavelength = np.broadcast_arrays(
+    spd_, wavelength_ = np.broadcast_arrays(
         spd,
         wavelength,
         subok=True,
     )
 
-    xyz = color_matching_xyz(wavelength, axis=0)
-    integrand = spd * xyz
+    xyz = color_matching_xyz(cast(u.Quantity, wavelength_), axis=0)
+    integrand = spd_ * xyz
 
     result = np.trapezoid(
-        x=wavelength,
+        x=wavelength_,
         y=integrand,
         axis=axis,
     )
@@ -777,27 +811,27 @@ def sRGB(
 def _bounds_normalize(
     a: np.ndarray,
     axis: int,
-    vmin: None | np.ndarray,
-    vmax: None | np.ndarray,
+    vmin: None | float | np.ndarray,
+    vmax: None | float | np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
 
-    axis_orthogonal = list(range(a.ndim))
-    axis_orthogonal.pop(axis)
-    axis_orthogonal = tuple(axis_orthogonal)
+    axes = list(range(a.ndim))
+    axes.pop(axis)
+    axis_orthogonal = tuple(axes)
 
     if vmin is None:
         vmin = np.nanmin(a, axis=axis_orthogonal, keepdims=True)
     if vmax is None:
         vmax = np.nanmax(a, axis=axis_orthogonal, keepdims=True)
 
-    return vmin, vmax
+    return cast(np.ndarray, vmin), cast(np.ndarray, vmax)
 
 
 def _transform_normalize(
     a: np.ndarray,
     axis: int,
-    vmin: None | np.ndarray,
-    vmax: None | np.ndarray,
+    vmin: None | float | np.ndarray,
+    vmax: None | float | np.ndarray,
     norm: None | Callable[[np.ndarray], np.ndarray],
 ) -> Callable[[np.ndarray], np.ndarray]:
 
@@ -825,8 +859,8 @@ def _transform_normalize(
 def _transform_wavelength(
     wavelength: u.Quantity,
     axis: int,
-    vmin: None | np.ndarray,
-    vmax: None | np.ndarray,
+    vmin: None | float | np.ndarray,
+    vmax: None | float | np.ndarray,
     norm: None | Callable[[np.ndarray], np.ndarray],
 ):
     if vmin is None:
@@ -842,11 +876,11 @@ def _transform_wavelength(
         norm=norm,
     )
 
-    def result(x: u.Quantity):
-        x = transform_normalize(x)
+    def result(x: u.Quantity) -> u.Quantity:
+        x_normalized = transform_normalize(x)
         wavelength_visible_range = wavelength_visible_max - wavelength_visible_min
-        x = wavelength_visible_range * x + wavelength_visible_min
-        return x
+        result = wavelength_visible_range * x_normalized + wavelength_visible_min
+        return cast(u.Quantity, result)
 
     return result
 
@@ -855,19 +889,19 @@ def _transform_spd_wavelength(
     spd: np.ndarray,
     wavelength: u.Quantity,
     axis: int,
-    spd_min: None | np.ndarray,
-    spd_max: None | np.ndarray,
+    spd_min: None | float | np.ndarray,
+    spd_max: None | float | np.ndarray,
     spd_norm: None | Callable[[np.ndarray], np.ndarray],
     wavelength_min: None | u.Quantity,
     wavelength_max: None | u.Quantity,
     wavelength_norm: None | Callable[[u.Quantity], u.Quantity],
-) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+) -> Callable[[np.ndarray, u.Quantity], tuple[np.ndarray, u.Quantity]]:
     transform_wavelength = _transform_wavelength(
         wavelength=wavelength,
         axis=axis,
         vmin=wavelength_min,
         vmax=wavelength_max,
-        norm=wavelength_norm,
+        norm=cast("None | Callable[[np.ndarray], np.ndarray]", wavelength_norm),
     )
 
     transform_spd_normalize = _transform_normalize(
@@ -878,14 +912,16 @@ def _transform_spd_wavelength(
         norm=None,
     )
 
-    def transform_spd_wavelength(x: np.ndarray, w: u.Quantity):
-        w = transform_wavelength(w)
-        d65 = d65_standard_illuminant(w)
-        x = transform_spd_normalize(x)
+    def transform_spd_wavelength(
+        x: np.ndarray,
+        w: u.Quantity,
+    ) -> tuple[np.ndarray, u.Quantity]:
+        w_visible = transform_wavelength(w)
+        d65 = d65_standard_illuminant(w_visible)
+        x_normalized = transform_spd_normalize(x)
         if spd_norm is not None:
-            x = spd_norm(x)
-        x = d65 * x
-        return x, w
+            x_normalized = spd_norm(x_normalized)
+        return d65 * x_normalized, w_visible
 
     return transform_spd_wavelength
 
@@ -894,8 +930,8 @@ def rgb(
     spd: np.ndarray,
     wavelength: None | u.Quantity = None,
     axis: int = -1,
-    spd_min: None | np.ndarray = None,
-    spd_max: None | np.ndarray = None,
+    spd_min: None | float | np.ndarray = None,
+    spd_max: None | float | np.ndarray = None,
     spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
@@ -955,17 +991,13 @@ def rgb(
         fig, ax = plt.subplots(constrained_layout=True)
         ax.imshow(rgb);
     """
-    if wavelength is None:
-        shape_wavelength = [1] * spd.ndim
-        shape_wavelength[axis] = -1
-        wavelength = np.linspace(0, 1, num=spd.shape[axis])
-        wavelength = wavelength.reshape(shape_wavelength)
+    wavelength_ = _wavelength_normalized(spd, wavelength, axis)
 
-    _validate_spd_wavelength(spd, wavelength, axis)
+    _validate_spd_wavelength(spd, wavelength_, axis)
 
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,
-        wavelength=wavelength,
+        wavelength=wavelength_,
         axis=axis,
         spd_min=spd_min,
         spd_max=spd_max,
@@ -975,11 +1007,11 @@ def rgb(
         wavelength_norm=wavelength_norm,
     )
 
-    spd, wavelength = transform_spd_wavelength(spd, wavelength)
+    spd_, wavelength_ = transform_spd_wavelength(spd, wavelength_)
 
     XYZ = XYZcie1931_from_spd(
-        spd=spd,
-        wavelength=wavelength,
+        spd=spd_,
+        wavelength=wavelength_,
         axis=axis,
     )
 
@@ -988,7 +1020,9 @@ def rgb(
         axis=axis,
     )
 
-    RGB = RGB.to_value(u.dimensionless_unscaled)
+    RGB = np.asarray(
+        RGB.to_value(u.dimensionless_unscaled) if isinstance(RGB, u.Quantity) else RGB
+    )
 
     max_rgb = RGB.max(axis, keepdims=True)
 
@@ -1007,8 +1041,8 @@ def colorbar(
     axis: int = -1,
     axis_intensity: int = 0,
     axis_wavelength: int = 1,
-    spd_min: None | np.ndarray = None,
-    spd_max: None | np.ndarray = None,
+    spd_min: None | float | np.ndarray = None,
+    spd_max: None | float | np.ndarray = None,
     spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
@@ -1107,17 +1141,11 @@ def colorbar(
             fig, ax = plt.subplots()
             plt.pcolormesh(*colorbar)
     """
-    if wavelength is None:
-        shape_wavelength = [1] * spd.ndim
-        shape_wavelength[axis] = -1
-        wavelength = np.linspace(0, 1, num=spd.shape[axis])
-        wavelength = wavelength.reshape(shape_wavelength)
+    wavelength_ = _wavelength_normalized(spd, wavelength, axis)
 
-    _validate_spd_wavelength(spd, wavelength, axis)
+    _validate_spd_wavelength(spd, wavelength_, axis)
 
-    wavelength = np.asanyarray(wavelength)
-
-    shape = np.broadcast_shapes(spd.shape, wavelength.shape)
+    shape = np.broadcast_shapes(spd.shape, wavelength_.shape)
     ndim = len(shape)
     axis_ = ~range(ndim)[~axis]
 
@@ -1126,11 +1154,12 @@ def colorbar(
     # Give `wavelength` the same number of dimensions as the broadcast shape
     # so that the new intensity and wavelength axes of the colorbar line up
     # with the axes of `spd`.
-    wavelength = wavelength.reshape(
-        (1,) * (ndim - wavelength.ndim) + wavelength.shape,
+    wavelength_ = cast(
+        u.Quantity,
+        wavelength_.reshape((1,) * (ndim - wavelength_.ndim) + wavelength_.shape),
     )
 
-    spd_min, spd_max = _bounds_normalize(
+    spd_min_, spd_max_ = _bounds_normalize(
         a=spd,
         axis=axis_,
         vmin=spd_min,
@@ -1139,10 +1168,10 @@ def colorbar(
 
     transform_spd_wavelength = _transform_spd_wavelength(
         spd=spd,
-        wavelength=wavelength,
+        wavelength=wavelength_,
         axis=axis_,
-        spd_min=spd_min,
-        spd_max=spd_max,
+        spd_min=spd_min_,
+        spd_max=spd_max_,
         spd_norm=spd_norm,
         wavelength_min=wavelength_min,
         wavelength_max=wavelength_max,
@@ -1150,13 +1179,13 @@ def colorbar(
     )
 
     spd_min_ = np.broadcast_to(
-        array=spd_min,
-        shape=np.broadcast_shapes(np.shape(spd_min), shape_singleton),
+        array=spd_min_,
+        shape=np.broadcast_shapes(np.shape(spd_min_), shape_singleton),
         subok=True,
     )
     spd_max_ = np.broadcast_to(
-        array=spd_max,
-        shape=np.broadcast_shapes(np.shape(spd_max), shape_singleton),
+        array=spd_max_,
+        shape=np.broadcast_shapes(np.shape(spd_max_), shape_singleton),
         subok=True,
     )
 
@@ -1171,16 +1200,16 @@ def colorbar(
 
     intensity = intensity[np.newaxis, :]
 
-    wavelength2 = wavelength[np.newaxis, np.newaxis]
+    wavelength2 = wavelength_[np.newaxis, np.newaxis]
     wavelength2 = np.swapaxes(wavelength2, 0, axis_)
 
     shape_cbar = np.broadcast_shapes(
         intensity.shape,
-        wavelength.shape,
+        wavelength_.shape,
         wavelength2.shape,
     )
 
-    shape_index = [1] * max(wavelength.ndim, -axis_)
+    shape_index = [1] * max(wavelength_.ndim, -axis_)
     shape_index[axis_] = shape[axis_]
     index = np.arange(shape[axis_]).reshape(shape_index)
     index2 = np.swapaxes(index[np.newaxis, np.newaxis], 0, axis_)
@@ -1189,12 +1218,14 @@ def colorbar(
     cbar[np.broadcast_to(index == index2, shape_cbar)] = 1
     cbar = cbar * intensity + spd_min_
 
-    spd_, wavelength_ = transform_spd_wavelength(cbar, wavelength)
+    spd_, wavelength_ = transform_spd_wavelength(cbar, wavelength_)
 
     XYZ = XYZcie1931_from_spd(spd_, wavelength_, axis=axis_)
     RGB = sRGB(XYZ, axis=axis_)
 
-    RGB = RGB.to_value(u.dimensionless_unscaled)
+    RGB = np.asarray(
+        RGB.to_value(u.dimensionless_unscaled) if isinstance(RGB, u.Quantity) else RGB
+    )
 
     RGB = np.clip(RGB, 0, 1)
 
@@ -1216,10 +1247,10 @@ def colorbar(
 
 def rgb_and_colorbar(
     spd: np.ndarray,
-    wavelength: u.Quantity,
+    wavelength: None | u.Quantity = None,
     axis: int = -1,
-    spd_min: None | np.ndarray = None,
-    spd_max: None | np.ndarray = None,
+    spd_min: None | float | np.ndarray = None,
+    spd_max: None | float | np.ndarray = None,
     spd_norm: None | Callable[[np.ndarray], np.ndarray] = None,
     wavelength_min: None | u.Quantity = None,
     wavelength_max: None | u.Quantity = None,
@@ -1267,6 +1298,8 @@ def rgb_and_colorbar(
     instead of being computed independently by each of them.
     """
 
+    wavelength = _wavelength_normalized(spd, wavelength, axis)
+
     shape = np.broadcast_shapes(np.shape(spd), np.shape(wavelength))
     axis_ = ~range(len(shape))[~axis]
 
@@ -1277,13 +1310,12 @@ def rgb_and_colorbar(
         vmax=spd_max,
     )
 
-    if wavelength is not None:
-        if wavelength_min is None:
-            wavelength_min = np.nanmin(wavelength)
-        if wavelength_max is None:
-            wavelength_max = np.nanmax(wavelength)
+    if wavelength_min is None:
+        wavelength_min = np.nanmin(wavelength)
+    if wavelength_max is None:
+        wavelength_max = np.nanmax(wavelength)
 
-    kwargs = dict(
+    RGB = rgb(
         spd=spd,
         wavelength=wavelength,
         axis=axis,
@@ -1294,8 +1326,17 @@ def rgb_and_colorbar(
         wavelength_max=wavelength_max,
         wavelength_norm=wavelength_norm,
     )
-
-    RGB = rgb(**kwargs)
-    cbar = colorbar(**kwargs, **kwargs_colorbar)
+    cbar = colorbar(
+        spd=spd,
+        wavelength=wavelength,
+        axis=axis,
+        spd_min=spd_min,
+        spd_max=spd_max,
+        spd_norm=spd_norm,
+        wavelength_min=wavelength_min,
+        wavelength_max=wavelength_max,
+        wavelength_norm=wavelength_norm,
+        **kwargs_colorbar,
+    )
 
     return RGB, cbar
