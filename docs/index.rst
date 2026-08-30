@@ -67,6 +67,89 @@ own minimum and maximum over the spatial axes, which is often useful for
 real data with a bright continuum, but would exaggerate the faint wings of
 the emission line in this synthetic example.
 
+Gallery
+=======
+
+The examples below show how the shape of a spectral power distribution (SPD)
+determines the color computed by :func:`colorsynth.rgb`.
+In each panel, the area under the SPD is filled with the color that
+:mod:`colorsynth` computes for that spectrum.
+
+Narrow emission lines produce the saturated spectral hues, a doublet mixes
+the hues of its components (blue plus red makes purple, a color that no
+single wavelength can produce), and broadband spectra wash out toward white:
+the flat spectrum is nearly neutral, while the blackbody curves are warm or
+cool tints depending on whether the red or blue end dominates.
+
+.. jupyter-execute::
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import astropy.units as u
+    import astropy.constants
+    import astropy.visualization
+    import colorsynth
+
+    # Define a wavelength grid spanning the human visible range
+    wavelength = np.linspace(380, 700, num=321) * u.nm
+
+    def gaussian(center: u.Quantity, width: u.Quantity) -> np.ndarray:
+        """A Gaussian emission line with the given center and width."""
+        return np.exp(-np.square((wavelength - center) / width))
+
+    def blackbody(temperature: u.Quantity) -> np.ndarray:
+        """A normalized Planck spectrum for the given temperature."""
+        h = astropy.constants.h
+        c = astropy.constants.c
+        k_B = astropy.constants.k_B
+        spd = 1 / wavelength**5 / np.expm1(h * c / (wavelength * k_B * temperature))
+        return (spd / spd.max()).to_value(u.dimensionless_unscaled)
+
+    # A collection of example spectral power distributions
+    spds = {
+        "blue emission line": gaussian(450 * u.nm, 10 * u.nm),
+        "green emission line": gaussian(540 * u.nm, 10 * u.nm),
+        "red emission line": gaussian(620 * u.nm, 10 * u.nm),
+        "blue + red doublet": gaussian(450 * u.nm, 10 * u.nm) + gaussian(640 * u.nm, 10 * u.nm),
+        "broad emission line": gaussian(550 * u.nm, 80 * u.nm),
+        "flat spectrum": np.ones(wavelength.shape),
+        "3000 K blackbody": blackbody(3000 * u.K),
+        "20000 K blackbody": blackbody(20000 * u.K),
+    }
+
+    # Plot each spectral power distribution, filling the area under
+    # the curve with the color computed by colorsynth
+    with astropy.visualization.quantity_support():
+        fig, axs = plt.subplots(
+            nrows=4,
+            ncols=2,
+            figsize=(8, 8),
+            sharex=True,
+            constrained_layout=True,
+        )
+        for ax, (label, spd) in zip(axs.flat, spds.items()):
+            color = colorsynth.rgb(
+                spd,
+                wavelength,
+                axis=-1,
+                spd_min=0,
+                spd_max=spd.max(),
+            )
+            ax.set_facecolor("0.85")
+            ax.fill_between(wavelength, spd, color=color)
+            ax.plot(wavelength, spd, color="black", linewidth=0.5)
+            ax.set_title(label, fontsize=10)
+            ax.set_ylim(0, 1.1)
+        for ax in axs[~0]:
+            ax.set_xlabel(f"wavelength ({wavelength.unit:latex_inline})")
+        for ax in axs[:, 0]:
+            ax.set_ylabel("relative intensity")
+
+Note that the saturated colors of the narrow emission lines are limited by
+the sRGB gamut of a computer monitor: a truly monochromatic green, for
+example, lies outside the gamut, so :func:`colorsynth.rgb` clips it to the
+closest displayable color.
+
 Colorizing IRIS spectroheliograms
 =================================
 
@@ -181,6 +264,7 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
         axs[1].yaxis.tick_right()
         axs[1].yaxis.set_label_position("right")
         axs[1].set_ylim(velocity_min, velocity_max)
+
 |
 
 API Reference
