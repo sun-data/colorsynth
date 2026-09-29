@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 import astropy.units as u
 import colorsynth
+from colorsynth._colorsynth import _trapezoid
 
 rng = np.random.default_rng(42)
 
@@ -205,7 +206,7 @@ def test_XYZcie1931_from_spd_trapezoid_equivalence(
     spd_, wavelength_ = np.broadcast_arrays(spd, wavelength, subok=True)
     axis_ = ~(~axis % spd_.ndim)
     xyz = colorsynth.color_matching_xyz(wavelength_, axis=0)
-    expected = np.trapezoid(x=wavelength_, y=spd_ * xyz, axis=axis_)
+    expected = _trapezoid(x=wavelength_, y=spd_ * xyz, axis=axis_)
     expected = np.moveaxis(expected, 0, axis_)
 
     assert result.shape == expected.shape
