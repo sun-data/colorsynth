@@ -5,6 +5,11 @@ import numpy as np
 import numba
 import astropy.units as u
 
+try:
+    from numpy import trapezoid as _trapezoid
+except ImportError:  # numpy < 2
+    from numpy import trapz as _trapezoid  # type: ignore
+
 __all__ = [
     "wavelength_visible_min",
     "wavelength_visible_max",
@@ -45,7 +50,7 @@ def _d65_standard_illuminant_tabulated() -> tuple[u.Quantity, u.Quantity]:
     wavl = wavl << u.nm
 
     ybar = color_matching_y(wavl)
-    Y = np.trapezoid(x=wavl, y=ybar * spd)
+    Y = _trapezoid(x=wavl, y=ybar * spd)
 
     spd = spd / Y
 
@@ -551,7 +556,7 @@ def XYZcie1931_from_spd(
     xyz = color_matching_xyz(cast(u.Quantity, wavelength_), axis=0)
     integrand = spd_ * xyz
 
-    result = np.trapezoid(
+    result = _trapezoid(
         x=wavelength_,
         y=integrand,
         axis=axis,
