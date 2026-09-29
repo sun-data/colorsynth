@@ -25,7 +25,9 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.10"
             numpy: "numpy==1.24.*"
-    name: ${{ matrix.os }}, Python ${{ matrix.python-version }}, ${{ matrix.numpy }} install and test
+    # Only the pinned-numpy job gets a suffix, since the names of the other
+    # jobs are required status checks in the repository ruleset.
+    name: ${{ matrix.os }}, Python ${{ matrix.python-version }}${{ matrix.numpy != 'numpy' && format(', {0}', matrix.numpy) || '' }} install and test
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
