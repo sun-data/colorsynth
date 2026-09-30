@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use colorsynth in your research, please cite it using these metadata."
+type: software
+title: colorsynth
+abstract: >-
+  A Python library for creating false-color images from arrays of spectral
+  radiance.
+authors:
+  - family-names: Smart
+    given-names: Roy T.
+    orcid: "https://orcid.org/0000-0002-9997-5515"
+repository-code: "https://github.com/sun-data/colorsynth"
+url: "https://colorsynth.readthedocs.io"
+license: BSD-3-Clause
+keywords:
+  - false-color image
+  - spectroscopy
+  - color theory
+  - CIE 1931
+  - solar physics

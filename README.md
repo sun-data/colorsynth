@@ -69,3 +69,20 @@ An Si IV 1403 A spectroheliogram captured by the [Interface Region Imaging Spect
 The code to create this image can be found in the [documentation](https://colorsynth.readthedocs.io/).
 
 ![IRIS spectroheliogram](https://colorsynth.readthedocs.io/en/latest/_images/index_1_1.png)
+
+## Citation
+
+If you use colorsynth in your research, please cite it.
+The citation metadata is kept in [`CITATION.cff`](https://github.com/sun-data/colorsynth/blob/main/CITATION.cff),
+which the "Cite this repository" button on GitHub can export as BibTeX or APA.
+Please include the version of colorsynth that you used,
+which is given by `importlib.metadata.version("colorsynth")`.
+
+```bibtex
+@software{colorsynth,
+  author = {Smart, Roy T.},
+  title = {colorsynth},
+  version = {X.Y.Z},
+  url = {https://github.com/sun-data/colorsynth},
+}
+```
