@@ -267,6 +267,27 @@ With :mod:`colorsynth`, we can plot this type of data using color as a third dim
 
 |
 
+Citation
+========
+
+If you use :mod:`colorsynth` in your research, please cite it.
+The citation metadata is kept in
+`CITATION.cff <https://github.com/sun-data/colorsynth/blob/main/CITATION.cff>`_,
+which the "Cite this repository" button on the
+`GitHub page <https://github.com/sun-data/colorsynth>`_
+can export as BibTeX or APA.
+Please include the version of :mod:`colorsynth` that you used,
+which is given by ``importlib.metadata.version("colorsynth")``.
+
+.. code-block:: bibtex
+
+    @software{colorsynth,
+      author = {Smart, Roy T.},
+      title = {colorsynth},
+      version = {X.Y.Z},
+      url = {https://github.com/sun-data/colorsynth},
+    }
+
 API Reference
 =============
 
